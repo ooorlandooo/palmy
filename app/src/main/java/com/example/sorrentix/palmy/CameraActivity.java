@@ -32,6 +32,8 @@ import static com.example.sorrentix.palmy.R.id.image;
 public class CameraActivity extends Activity implements TextureView.SurfaceTextureListener {
     private Camera mCamera;
     private TextureView mTextureView;
+    private int mask;
+    private int mask_piena;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,10 +47,17 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         ImageView imgview = (ImageView) findViewById(R.id.image_view);
         String srcimg = getIntent().getExtras().getString("mano");
 
-        if(srcimg.equals("sx"))
-            imgview.setImageResource(R.drawable.mano_sx);
-        else
-            imgview.setImageResource(R.drawable.mano_dx);
+        if(srcimg.equals("sx")) {
+            mask = R.drawable.mano_sx;
+            mask_piena = R.drawable.mano_sx_piena;
+        }
+        else {
+            mask = R.drawable.mano_dx;
+            mask_piena = R.drawable.mano_dx_piena;
+        }
+
+        imgview.setImageResource(mask);
+
         mTextureView = (TextureView) findViewById(R.id.camera_preview);
         mTextureView.setSurfaceTextureListener(this);
 
@@ -96,7 +105,7 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
 
     public void takeScreenShot(View v) {
         Bitmap bmp = mTextureView.getBitmap();
-        Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),R.drawable.mano_dx);
+        Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),mask_piena);
         ImageUtils.mergeAndSave(bmp,bmp2);
     }
 }
