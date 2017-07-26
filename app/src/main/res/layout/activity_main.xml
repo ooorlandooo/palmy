@@ -4,26 +4,41 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.sorrentix.palmy.MainActivity">
+    tools:context="com.example.sorrentix.palmy.CameraActivity">
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         >
         <FrameLayout
-            android:id="@+id/camera_preview"
+            android:id="@+id/camera_container"
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            />
+            android:padding="0dp">
+
+            <TextureView android:id="@+id/camera_preview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView android:id="@+id/image_view"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:background="#FFFFFF"
+                android:layout_margin="0dp"
+                android:src="@drawable/mano_dx" />
+
+
+        </FrameLayout>
 
         <Button
             android:id="@+id/button_capture"
             android:text="Capture"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
+            android:layout_gravity="center_horizontal"
+            android:onClick="takeScreenShot"
             />
     </LinearLayout>
 
