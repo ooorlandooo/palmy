@@ -3,10 +3,23 @@ package com.example.sorrentix.palmy;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
+
+import org.opencv.android.OpenCVLoader;
 
 public class MainActivity extends AppCompatActivity {
 
+    private final static String TAG = "MainAcitivty";
+
+    static {
+        if(OpenCVLoader.initDebug()){
+            Log.d(TAG,"ok");
+        }
+        else {
+            Log.d(TAG,"no");
+        }
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
