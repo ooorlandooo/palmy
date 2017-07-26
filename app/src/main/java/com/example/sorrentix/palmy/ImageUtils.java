@@ -6,6 +6,14 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.os.Environment;
 import android.util.Log;
+import android.widget.Toast;
+
+
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -20,6 +28,9 @@ import java.util.Date;
 
 public class ImageUtils {
 
+    static {
+        System.loadLibrary("opencv_java3");
+    }
 
     private static File getOutputMediaFile() {
         File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Palmy");
@@ -59,13 +70,17 @@ public class ImageUtils {
     public static void mergeAndSave(Bitmap bmp, Bitmap bmp2){
         bmp2= getResizedBitmap(bmp2,bmp.getWidth(),bmp.getHeight());
         Bitmap bmpf = overlay(bmp,bmp2);
-
+        Mat matsrc = new Mat(bmpf.getHeight(),bmpf.getWidth(), CvType.CV_8U, new Scalar(4));
+        Utils.bitmapToMat(bmpf,matsrc);
+        Imgproc.cvtColor(matsrc,matsrc,Imgproc.COLOR_BGR2GRAY);
+        Imgproc.Canny(matsrc,matsrc,10,100);
+        Utils.matToBitmap(matsrc,bmpf);
         File imageFile = getOutputMediaFile();
 
         FileOutputStream outputStream = null;
         try {
             outputStream = new FileOutputStream(imageFile);
-            bmpf.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+            bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
             outputStream.flush();
             outputStream.close();
         } catch (FileNotFoundException e) {

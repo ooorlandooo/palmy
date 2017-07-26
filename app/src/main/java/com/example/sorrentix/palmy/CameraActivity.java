@@ -20,6 +20,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -106,6 +107,8 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
     public void takeScreenShot(View v) {
         Bitmap bmp = mTextureView.getBitmap();
         Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),mask_piena);
+        Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
         ImageUtils.mergeAndSave(bmp,bmp2);
+        Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
     }
 }
