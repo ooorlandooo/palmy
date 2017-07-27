@@ -13,6 +13,7 @@ import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
@@ -73,7 +74,10 @@ public class ImageUtils {
         Mat matsrc = new Mat(bmpf.getHeight(),bmpf.getWidth(), CvType.CV_8U, new Scalar(4));
         Utils.bitmapToMat(bmpf,matsrc);
         Imgproc.cvtColor(matsrc,matsrc,Imgproc.COLOR_BGR2GRAY);
-        Imgproc.Canny(matsrc,matsrc,10,100);
+
+        Imgproc.blur(matsrc,matsrc,new Size(3,3));
+        Imgproc.Canny(matsrc,matsrc,10,3*10,3,true);
+
         Utils.matToBitmap(matsrc,bmpf);
         File imageFile = getOutputMediaFile();
 

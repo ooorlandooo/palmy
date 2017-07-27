@@ -69,6 +69,10 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         mCamera = Camera.open();
         try {
             mCamera.setDisplayOrientation(90);
+            Camera.Parameters params = mCamera.getParameters();
+            if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
+                params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+            mCamera.setParameters(params);
             mCamera.setPreviewTexture(surface);
             mCamera.startPreview();
         } catch (IOException ioe) {}
