@@ -1,36 +1,24 @@
 package com.example.sorrentix.palmy;
 
-import android.Manifest;
 import android.app.Activity;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
-import android.os.Build;
-import android.os.Environment;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.TextureView;
 import android.view.View;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
-import static com.example.sorrentix.palmy.R.id.camera_preview;
-import static com.example.sorrentix.palmy.R.id.image;
 
-public class CameraActivity extends Activity implements TextureView.SurfaceTextureListener {
+public class CameraActivity extends Activity implements TextureView.SurfaceTextureListener, MediaScannerConnection.OnScanCompletedListener {
+    private static final String TAG = "CameraActivity";
+
+
     private Camera mCamera;
     private TextureView mTextureView;
     private int mask;
@@ -40,11 +28,6 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        try {
-            permissionsHandler();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         ImageView imgview = (ImageView) findViewById(R.id.image_view);
         String srcimg = getIntent().getExtras().getString("mano");
 
@@ -62,8 +45,9 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         mTextureView = (TextureView) findViewById(R.id.camera_preview);
         mTextureView.setSurfaceTextureListener(this);
 
-
     }
+
+
 
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         mCamera = Camera.open();
@@ -88,31 +72,17 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
 
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
 
-    private void permissionsHandler() throws IOException {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) + ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE) || ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 123);
-
-                }
-
-            } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 123);
-
-                }
-            }
-        }
-
-    }
-
     public void takeScreenShot(View v) {
         Bitmap bmp = mTextureView.getBitmap();
         Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),mask_piena);
         Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
-        ImageUtils.mergeAndSave(bmp,bmp2);
+        Uri fileUri = ImageUtils.mergeAndSave(bmp,bmp2);
+        MediaScannerConnection.scanFile(this, new String[]{fileUri.getPath()}, null, this);
         Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onScanCompleted(String path, Uri uri) {
+
     }
 }
