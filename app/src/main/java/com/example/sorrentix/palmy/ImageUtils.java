@@ -34,6 +34,47 @@ public class ImageUtils {
     private static FileHandler fileHandler = new FileHandler();
     private static File imageFile;
 
+    public static Mat enlarging(Mat cannedImage){
+        Mat result = new Mat(cannedImage.height(),cannedImage.width(),CvType.CV_8UC3, new Scalar(4));
+        cannedImage.copyTo(result);
+        Double myPixel;
+        for (int i = 0; i < cannedImage.rows(); i++) {
+            for (int j = 0; j < cannedImage.cols(); j++) {
+
+                myPixel = cannedImage.get(i, j)[0];
+                System.out.print("color value=" + myPixel);
+                if (myPixel == 255) {
+                    Point p1, p2;
+                    p1 = new Point();
+                    p2 = new Point();
+                    if (i - 20 < 0) {
+                        p1.x = 0;
+                    } else {
+                        p1.x = i - 20;
+                    }
+                    if (i + 20 > cannedImage.rows()) {
+                        p2.x = cannedImage.rows();
+                    } else {
+                        p2.x = i + 20;
+                    }
+                    if (j - 20 < 0) {
+                        p1.y = 0;
+                    } else {
+                        p1.y = j - 20;
+                    }
+                    if (j + 20 > cannedImage.cols()) {
+                        p2.y = cannedImage.cols();
+                    } else {
+                        p2.y = j + 20;
+                    }
+                    Rect whiteRectangle = new Rect(p1, p2);
+                    Imgproc.rectangle(result, p1, p2, new Scalar(255, 255, 255), Core.FILLED);
+                }
+            }
+
+        }
+        return result;
+    }
 
     public static Bitmap overlay(Bitmap bmp1, Bitmap bmp2) {
         Bitmap bmOverlay = Bitmap.createBitmap(bmp1.getWidth(), bmp1.getHeight(), bmp1.getConfig());
@@ -88,15 +129,9 @@ public class ImageUtils {
         Imgproc.Canny(croppedImg,croppedImg,highThreshold,lowThreshold);
 
 
-        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_GRAY2RGB);
+        croppedImg = enlarging(croppedImg);
+        //Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_GRAY2RGB);
 
-     /*   Imgproc.line(croppedImg,p1,p2,new Scalar(255,0,0),5);
-        Imgproc.line(croppedImg,p2,p4,new Scalar(255,0,0),5);
-        Imgproc.line(croppedImg,p1,p3,new Scalar(255,0,0),5);
-        Imgproc.line(croppedImg,p3,p4,new Scalar(255,0,0),5);
-*/
-
-        Imgproc.rectangle(croppedImg,p1,p4,new Scalar(255,0,0));
         bmpf = getResizedBitmap(bmpf,croppedImg.width(),croppedImg.height());
         Utils.matToBitmap(croppedImg,bmpf);
 
