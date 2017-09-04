@@ -116,8 +116,7 @@ public class ImageUtils {
         Mat diff = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
         do {
             System.out.println("Chiamo iteration");
-            thinningIteration(m, 0);
-            thinningIteration(m, 1);
+            thinningIteration(m);
             Core.absdiff(m, prev, diff);
             m.copyTo(prev);
         }
@@ -127,29 +126,32 @@ public class ImageUtils {
         return m;
     }
 
-    public static Mat thinningIteration(Mat m, int iter){
+    public static Mat thinningIteration(Mat m){
         Mat marker = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
         double[] p = new double[8];
         for (int i = 1; i < m.height()-1; i++) {
             for (int j = 1; j < m.width() - 1; j++) {
-                p[0] = m.get(j, i - 1)[0];
-                p[1] = m.get(j + 1, i - 1)[0];
-                p[2] = m.get(j + 1, i)[0];
-                p[3] = m.get(j + 1, i + 1)[0];
-                p[4] = m.get(j, i + 1)[0];
-                p[5] = m.get(j - 1, i + 1)[0];
-                p[6] = m.get(j - 1, i)[0];
-                p[7] = m.get(j - 1, i - 1)[0];
-                int A = ((p[0] == 0 && p[1] == 1) ? 1 : 0) + ((p[1] == 0 && p[2] == 1) ? 1 : 0) +
-                        ((p[2] == 0 && p[3] == 1) ? 1 : 0) + ((p[3] == 0 && p[4] == 1) ? 1 : 0) +
-                        ((p[4] == 0 && p[5] == 1) ? 1 : 0) + ((p[5] == 0 && p[6] == 1) ? 1 : 0) +
-                        ((p[6] == 0 && p[7] == 1) ? 1 : 0) + ((p[7] == 0 && p[0] == 1) ? 1 : 0);
-                double B = p[0] + p[1] + p[2] + p[3] + p[4] + p[5] + p[6] + p[7];
-                double m1 = iter == 0 ? (p[0] * p[2] * p[4]) : (p[0] * p[2] * p[4]);
-                double m2 = iter == 0 ? (p[2] * p[4] * p[6]) : (p[0] * p[4] * p[6]);
+                if (m.get(j, i - 1)[0] != 0) {
+                    p[0] = m.get(j, i - 1)[0];
+                    p[1] = m.get(j + 1, i - 1)[0];
+                    p[2] = m.get(j + 1, i)[0];
+                    p[3] = m.get(j + 1, i + 1)[0];
+                    p[4] = m.get(j, i + 1)[0];
+                    p[5] = m.get(j - 1, i + 1)[0];
+                    p[6] = m.get(j - 1, i)[0];
+                    p[7] = m.get(j - 1, i - 1)[0];
+                    int A = ((p[0] == 0 && p[1] == 1) ? 1 : 0) + ((p[1] == 0 && p[2] == 1) ? 1 : 0) +
+                            ((p[2] == 0 && p[3] == 1) ? 1 : 0) + ((p[3] == 0 && p[4] == 1) ? 1 : 0) +
+                            ((p[4] == 0 && p[5] == 1) ? 1 : 0) + ((p[5] == 0 && p[6] == 1) ? 1 : 0) +
+                            ((p[6] == 0 && p[7] == 1) ? 1 : 0) + ((p[7] == 0 && p[0] == 1) ? 1 : 0);
+                    double B = p[0] + p[1] + p[2] + p[3] + p[4] + p[5] + p[6] + p[7];
+                    boolean m1 = ( ( (p[0] * p[2] * p[4]) == 0 ) && ((p[2] * p[4] * p[6]) == 0) );
+                    boolean m2 = ( ( (p[0] * p[2] * p[6]) == 0 ) && ((p[0] * p[4] * p[6]) == 0) );
 
-                if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0)
-                    marker.put(j, i, 1);
+                    if (A == 1 && (B >= 2 && B <= 6) && ( m1 || m2 )) {
+                        marker.put(j, i, 1);
+                    }
+                }
             }
         }
 
