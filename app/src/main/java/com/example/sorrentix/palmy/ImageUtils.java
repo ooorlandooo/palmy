@@ -68,7 +68,7 @@ public class ImageUtils {
               p3 = new Point(200,1250),
               p4 = new Point(950,1250);
         Rect rectCrop = new Rect(p1,p4); //new Rect((int)p1.x, (int)p1.y , (int)(p4.x-p1.x+1), (int)(p4.y-p1.y+1));
-        Mat croppedImg= matsrc;//new Mat(matsrc,rectCrop);//submat(rectCrop);
+        Mat croppedImg= new Mat(matsrc,rectCrop);//submat(rectCrop);
 
 
         //Approccio cinese
@@ -95,8 +95,9 @@ public class ImageUtils {
         Imgproc.line(croppedImg,p1,p3,new Scalar(255,0,0),5);
         Imgproc.line(croppedImg,p3,p4,new Scalar(255,0,0),5);
 */
-     Imgproc.rectangle(croppedImg,p1,p4,new Scalar(255,0,0));
 
+        Imgproc.rectangle(croppedImg,p1,p4,new Scalar(255,0,0));
+        bmpf = getResizedBitmap(bmpf,croppedImg.width(),croppedImg.height());
         Utils.matToBitmap(croppedImg,bmpf);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
