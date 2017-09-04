@@ -4,16 +4,19 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.net.Uri;
+import android.util.Log;
 
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfDouble;
+
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
@@ -27,6 +30,7 @@ public class ImageUtils {
         System.loadLibrary("opencv_java3");
     }
 
+    private static final String TAG = "ImageUtils";
     private static FileHandler fileHandler = new FileHandler();
     private static File imageFile;
 
@@ -57,21 +61,43 @@ public class ImageUtils {
         Utils.bitmapToMat(bmpf,matsrc);
         Imgproc.cvtColor(matsrc,matsrc,Imgproc.COLOR_BGR2GRAY);
 
-        Imgproc.blur(matsrc,matsrc,new Size(7,7));
-        //Imgproc.GaussianBlur(matsrc,matsrc,new Size(5,5),0);
-        //Imgproc.equalizeHist(matsrc,matsrc);
-        //Imgproc.medianBlur(matsrc,matsrc,7);
+        //Ritaglio del palmo
+        //TODO scegliere i punti in modo dinamico
+        Point p1 = new Point(200,500),
+              p2 = new Point(950,500),
+              p3 = new Point(200,1250),
+              p4 = new Point(950,1250);
+        Rect rectCrop = new Rect(p1,p4); //new Rect((int)p1.x, (int)p1.y , (int)(p4.x-p1.x+1), (int)(p4.y-p1.y+1));
+        Mat croppedImg= matsrc;//new Mat(matsrc,rectCrop);//submat(rectCrop);
 
-        Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_CROSS,new Size(3,3));
 
-        Imgproc.Canny(matsrc,matsrc,10,20,3,true);
-        Imgproc.dilate(matsrc,matsrc,element);
+        //Approccio cinese
+        Imgproc.equalizeHist(croppedImg,croppedImg);
+        Imgproc.medianBlur(croppedImg,croppedImg,15);
 
-        Imgproc.cvtColor(matsrc,matsrc,Imgproc.COLOR_GRAY2RGB);
 
-        Imgproc.line(matsrc,new Point(0,0),new Point(100,100),new Scalar(255,0,0),5);
+        int k = 0;
+        MatOfDouble mean = new MatOfDouble(),
+                    stdDev = new MatOfDouble();
+        Core.meanStdDev(croppedImg,mean,stdDev);
 
-        Utils.matToBitmap(matsrc,bmpf);
+        double highThreshold = mean.get(0,0)[0] + stdDev.get(0,0)[0] + k;
+        double lowThreshold = mean.get(0,0)[0] - stdDev.get(0,0)[0];
+        Log.e(TAG, "mergeAndSave: HT="+highThreshold+" - LT="+lowThreshold);
+
+        Imgproc.Canny(croppedImg,croppedImg,highThreshold,lowThreshold);
+
+
+        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_GRAY2RGB);
+
+     /*   Imgproc.line(croppedImg,p1,p2,new Scalar(255,0,0),5);
+        Imgproc.line(croppedImg,p2,p4,new Scalar(255,0,0),5);
+        Imgproc.line(croppedImg,p1,p3,new Scalar(255,0,0),5);
+        Imgproc.line(croppedImg,p3,p4,new Scalar(255,0,0),5);
+*/
+     Imgproc.rectangle(croppedImg,p1,p4,new Scalar(255,0,0));
+
+        Utils.matToBitmap(croppedImg,bmpf);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
@@ -80,8 +106,6 @@ public class ImageUtils {
             bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
             outputStream.flush();
             outputStream.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
