@@ -1,8 +1,10 @@
 package com.example.sorrentix.palmy;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.provider.Settings;
 import android.util.Log;
@@ -85,9 +87,7 @@ public class ImageUtils {
             }
 
         }
-       // System.out.println("Cont "+cont);
         cont = (cont/(result.width()*result.height()))*100;
-        //System.out.println("Cont perc "+cont);
         return new Pair<Mat, Integer>(result,new Integer(cont));
     }
 
@@ -114,24 +114,27 @@ public class ImageUtils {
         Core.divide(m,new Scalar(255),m);
        Mat prev = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
         Mat diff = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
+        System.out.println("Chiamo iteration before cleaning"+Core.countNonZero(m)+"---------------------------");
         do {
-            System.out.println("Chiamo iteration");
-            thinningIteration(m);
+            m = thinningIteration(m, 0);
+            m = thinningIteration(m, 1);
             Core.absdiff(m, prev, diff);
             m.copyTo(prev);
+            System.out.println("Cleaning up to"+Core.countNonZero(diff)+" white spaces ---------------------------");
         }
         while (Core.countNonZero(diff) > 0);
+        System.out.println("Chiamo iteration after cleaning"+Core.countNonZero(m)+"-------------------------");
 
         Core.multiply(m,new Scalar(255),m);
         return m;
     }
 
-    public static Mat thinningIteration(Mat m){
-        Mat marker = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
+    public static Mat thinningIteration(Mat m, int iter){
+        Mat marker = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(1));
         double[] p = new double[8];
         for (int i = 1; i < m.height()-1; i++) {
             for (int j = 1; j < m.width() - 1; j++) {
-                if (m.get(j, i - 1)[0] != 0) {
+                if (m.get(j, i)[0] != 0) {
                     p[0] = m.get(j, i - 1)[0];
                     p[1] = m.get(j + 1, i - 1)[0];
                     p[2] = m.get(j + 1, i)[0];
@@ -145,23 +148,21 @@ public class ImageUtils {
                             ((p[4] == 0 && p[5] == 1) ? 1 : 0) + ((p[5] == 0 && p[6] == 1) ? 1 : 0) +
                             ((p[6] == 0 && p[7] == 1) ? 1 : 0) + ((p[7] == 0 && p[0] == 1) ? 1 : 0);
                     double B = p[0] + p[1] + p[2] + p[3] + p[4] + p[5] + p[6] + p[7];
-                    boolean m1 = ( ( (p[0] * p[2] * p[4]) == 0 ) && ((p[2] * p[4] * p[6]) == 0) );
-                    boolean m2 = ( ( (p[0] * p[2] * p[6]) == 0 ) && ((p[0] * p[4] * p[6]) == 0) );
+                    double m1 = (iter == 0 ? (p[0] * p[2] * p[4]) : (p[0] * p[2] * p[6]));
+                    double m2 = (iter == 0 ? (p[2] * p[4] * p[6]) : (p[0] * p[4] * p[6]));
 
-                    if (A == 1 && (B >= 2 && B <= 6) && ( m1 || m2 )) {
-                        marker.put(j, i, 1);
+                    if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0 ) {
+                        marker.put(j, i, 0);
                     }
                 }
             }
         }
-
         System.out.println("torno al chiamante");
-        Core.bitwise_not(marker,marker);
         Core.bitwise_and(m,marker,m);
 
         return m;
     }
-    public static Uri mergeAndSave(Bitmap bmp, Bitmap bmp2){
+    public static Uri mergeAndSave(Bitmap bmp, Bitmap bmp2, Context c){
         bmp2= getResizedBitmap(bmp2,bmp.getWidth(),bmp.getHeight());
         Bitmap bmpf = overlay(bmp,bmp2);
         Mat matsrc = new Mat(bmpf.getHeight(),bmpf.getWidth(), CvType.CV_8UC3, new Scalar(4));
@@ -200,14 +201,31 @@ public class ImageUtils {
 
             k = k - 0.5*(highThreshold+lowThreshold);
         }while(cont<=12);
-        cannedImg=thinning(cannedImg);
+
+        ///////////////////momentanuos print
+       /* bmpf = getResizedBitmap(bmpf,cannedImg.width(),cannedImg.height());
+        Utils.matToBitmap(cannedImg,bmpf);
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
+//////////////////////////////
+*/
+        Mat thinnedImg = thinning(cannedImg);
         //Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_GRAY2RGB);
 
-        bmpf = getResizedBitmap(bmpf,cannedImg.width(),cannedImg.height());
-        Utils.matToBitmap(cannedImg,bmpf);
+        bmpf = getResizedBitmap(bmpf,thinnedImg.width(),thinnedImg.height());
+        Utils.matToBitmap(thinnedImg,bmpf);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
-         FileOutputStream outputStream = null;
+        FileOutputStream outputStream = null;
         try {
             outputStream = new FileOutputStream(imageFile);
             bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
