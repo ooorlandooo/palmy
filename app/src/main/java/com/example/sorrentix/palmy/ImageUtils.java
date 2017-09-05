@@ -16,6 +16,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDouble;
 
+import org.opencv.core.MatOfInt4;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
@@ -56,8 +57,8 @@ public class ImageUtils {
         cannedImage.copyTo(result);
         double[] temp;
         int cont=0;
-        for (int i = 0; i < cannedImage.height(); i++) {
-            for (int j = 0; j < cannedImage.width(); j++) {
+        for (int i = 1; i < cannedImage.height()-1; i++) {
+            for (int j = 1; j < cannedImage.width()-1; j++) {
 
              temp=  cannedImage.get(j, i);
                 if (temp[0] >= 150) {
@@ -65,22 +66,22 @@ public class ImageUtils {
                     p1 = new Point();
                     p2 = new Point();
                     if (i - 20 < 0) {
-                        p1.x = 0;
+                        p1.x = 1;
                     } else {
                         p1.x = i - 20;
                     }
                     if (i + 20 > cannedImage.height()-1) {
-                        p2.x = cannedImage.height()-1;
+                        p2.x = cannedImage.height()-2;
                     } else {
                         p2.x = i + 20;
                     }
                     if (j - 20 < 0) {
-                        p1.y = 0;
+                        p1.y = 1;
                     } else {
                         p1.y = j - 20;
                     }
                     if (j + 20 > cannedImage.width()-1) {
-                        p2.y = cannedImage.width()-1;
+                        p2.y = cannedImage.width()-2;
                     } else {
                         p2.y = j + 20;
                     }
@@ -114,16 +115,15 @@ public class ImageUtils {
         return resizedBitmap;
     }
 
-    public static SparseArray<Double> matToSparceArray(Mat source) {
+    public static double[][] matToMatrix(Mat source) {
         if (source == null || source.empty()) {
             return null;
         }
-        SparseArray<Double> result = new SparseArray<Double>();
+        double[][] result = new double[source.height()][source.width()];
 
         for (int i=0; i<source.height(); i++) {
             for (int j=0; j<source.width();j++){
-
-                result.put( (i*source.width())+j ,source.get(j,i)[0]);
+                result[i][j] = source.get(j,i)[0];
             }
 
         }
@@ -163,84 +163,80 @@ public class ImageUtils {
 
 
 
-    public static Mat convertSparseArrayToMat(SparseArray<Double> source, int height, int width){
+    public static Mat convertSparseArrayToMat(double[][] source, int height, int width){
         Mat result = new Mat(height,width,CvType.CV_8UC1,Scalar.all(0));
         for (int i=0;i<height;i++) {
             for (int j=0; j<width;j++) {
-                result.put(j, i, source.get(i*width+j));
+                result.put(j, i, source[i][j]);
             }
         }
         return result;
     }
 
-    public static SparseArray<Double> thinning(SparseArray<Double> m, int height, int width){
+    public static double[][] thinning(double[][] m, int height, int width){
 
-        int startingNonZeroPoints = 0;
-        SparseArray<Double> prev = new SparseArray<Double>();
-        SparseArray<Double> diff = new SparseArray<Double>();
-        for(int i=0; i<m.size(); i++){
-            m.put(i,m.get(i)/255);
-            prev.put(i,0.0);
-            if ( m.get(i) != 0 ){
-                startingNonZeroPoints++;
+        double[][] prev = new double[height][width];
+        double[][] diff = new double[height][width];
+
+        for(int i=0; i< height; i++){
+            for (int j=0;j<width;j++){
+                m[i][j] = m[i][j]/255;
+                prev[i][j] = 0.0;
+
             }
         }
 
-        System.out.println("white points before thinning:"+startingNonZeroPoints+"-------------------------");
-        startingNonZeroPoints = 0;
         int nonZeroDiff;
         do {
             m = thinningIteration(m, height,width, 0);
             m = thinningIteration(m,height,width, 1);
 
             nonZeroDiff = 0;
-            for(int i=0; i<m.size(); i++){
+            for(int i=0; i< height; i++){
+                for (int j=0;j<width;j++) {
 
-                if(m.get(i)!=null && prev.get(i)!=null) {
-                    diff.put(i, Math.abs(m.get(i)) - Math.abs(prev.get(i)));
-                    if (diff.get(i) != 0) {
+                    diff[i][j] = Math.abs(m[i][j]) - Math.abs(prev[i][j]);
+                    if (diff[i][j] != 0) {
                         nonZeroDiff++;
                     }
-                    prev.put(i, m.get(i));
+                    prev[i][j] = m[i][j];
                 }
             }
 
-            System.out.println("Cleaning up to"+nonZeroDiff+" white spaces ---------------------------");
         }
         while (nonZeroDiff > 0);
 
-        for(int i=0; i<m.size(); i++){
-            if ( m.get(i) != 0 ){
-                startingNonZeroPoints++;
+        for(int i=0; i< height; i++){
+            for (int j=0;j<width;j++) {
+                m[i][j]=m[i][j]*255;
             }
         }
-        System.out.println("white points after thinning:"+startingNonZeroPoints+"-------------------------");
 
-        for(int i=0; i<m.size(); i++){
-            m.put(i,m.get(i)*255);
-
-        }
 
         return m;
     }
 
-    public static SparseArray<Double> thinningIteration(SparseArray<Double> m, int height, int width, int iter){
-        SparseArray<Double> marker = new SparseArray<Double>();
-        for(int i=0; i<m.size(); i++){
-            marker.put(i,1.0);
+    public static double[][] thinningIteration(double[][] m, int height, int width, int iter){
+        double[][] marker = new double[height][width];
+        double[][] result = new double[height][width];
+
+        for(int i=0; i< height; i++){
+            for (int j=0;j<width;j++) {
+                marker[i][j] = 1.0;
+            }
         }
         double[] p = new double[8];
         for (int i = 1; i < height - 1; i++) {
             for (int j = 1; j < width - 1; j++) {
-                if (m.get(i * width + j) != 0) {
-                    p[0] = m.get( (i-1) * width + j);
-                    p[1] = m.get( (i-1) * width + (j+1));
-                    p[2] = m.get( i * width + (j+1));
-                    p[3] = m.get( (i+1) * width + (j+1));
-                    p[4] = m.get( (i+1) * width + j);
-                    p[5] = m.get( (i+1) * width + (j-1));
-                    p[6] = m.get( i * width + (j-1));
-                    p[7] = m.get( (i-1) * width + (j-1));
+                if (m[i][j] != 0) {
+                    p[0] = m[i-1][j];
+                    p[1] = m[i-1][j+1];
+                    p[2] = m[i][j+1];
+                    p[3] = m[i+1][j+1];
+                    p[4] = m[i+1][j];
+                    p[5] = m[i+1][j-1];
+                    p[6] = m[i][j-1];
+                    p[7] =m[i-1][j-1];
                     int A = ((p[0] == 0 && p[1] == 1) ? 1 : 0) + ((p[1] == 0 && p[2] == 1) ? 1 : 0) +
                             ((p[2] == 0 && p[3] == 1) ? 1 : 0) + ((p[3] == 0 && p[4] == 1) ? 1 : 0) +
                             ((p[4] == 0 && p[5] == 1) ? 1 : 0) + ((p[5] == 0 && p[6] == 1) ? 1 : 0) +
@@ -250,21 +246,21 @@ public class ImageUtils {
                     double m2 = (iter == 0 ? (p[2] * p[4] * p[6]) : (p[0] * p[4] * p[6]));
 
                     if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0 ) {
-                        marker.put( (i*width)+j ,0.0);
+                        marker[i][j] = 0.0;
                     }
+
                 }
             }
         }
-        System.out.println("torno al chiamante");
-        for(int i=0; i<m.size(); i++){
-            if (m.get(i) == 1 && marker.get(i) == 1) {
-                m.put(i, 1.0);
-            }else{
-                m.put(i, 0.0);
+        for(int i=0; i< height; i++) {
+            for (int j = 0; j < width; j++) {
+                if (m[i][j] == 1 && marker[i][j] == 1) {
+                    m[i][j] = 1.0;
+                } else {
+                    m[i][j] = 0.0;
+                }
             }
-
         }
-
         return m;
     }
 
@@ -289,7 +285,7 @@ public class ImageUtils {
         Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_BGR2GRAY);
         //Approccio cinese
         Imgproc.equalizeHist(croppedImg,croppedImg);
-        Imgproc.medianBlur(croppedImg,croppedImg,15);
+        Imgproc.medianBlur(croppedImg,croppedImg,25);
         double cont = 0;
         double k = 0;
         Pair<Mat, Integer> p;
@@ -305,16 +301,25 @@ public class ImageUtils {
             Imgproc.Canny(croppedImg, cannedImg, highThreshold, lowThreshold);
             p = enlarging(cannedImg);
             cont = ((double) Core.countNonZero(p.m) / (p.m.height() * p.m.width())) * 100;
-            System.out.println("Conteggio pixel bianchi " + cont);
 
             k = k - 0.5*(highThreshold+lowThreshold);
         }while(cont<=12);
 
 
-        SparseArray<Double> cannedImgMatrix = matToSparceArray(p.m);
-        SparseArray<Double> thinned = thinning(cannedImgMatrix, cannedImg.height(),cannedImg.width());
+        double[][] cannedImgMatrix = matToMatrix(p.m);
+        double[][] thinned = thinning(cannedImgMatrix, cannedImg.height(),cannedImg.width());
         Mat thinnedImg = convertSparseArrayToMat(thinned,cannedImg.height(),cannedImg.width());
+        MatOfInt4 hough = new MatOfInt4();
 
+        Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
+        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
+        Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
+
+        for (int i = 0; i < hough.rows(); i++) {
+
+            double[] val = hough.get(i, 0);
+            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
+        }
 
         bmpf = getResizedBitmap(bmpf,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmpf);
