@@ -76,7 +76,7 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         Bitmap bmp = mTextureView.getBitmap();
         Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),mask_piena);
         Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
-        Uri fileUri = ImageUtils.mergeAndSave(bmp,bmp2);
+        Uri fileUri = ImageUtils.mergeAndSave(bmp,bmp2,this);
         MediaScannerConnection.scanFile(this, new String[]{fileUri.getPath()}, null, this);
         Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
     }
