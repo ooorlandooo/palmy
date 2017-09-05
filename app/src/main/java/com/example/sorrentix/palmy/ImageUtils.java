@@ -8,6 +8,7 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.SparseArray;
 
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
@@ -22,6 +23,8 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+
+import static java.lang.Math.abs;
 
 /**
  * Created by ALESSANDROSERRAPICA on 25/07/2017.
@@ -110,39 +113,134 @@ public class ImageUtils {
         bm.recycle();
         return resizedBitmap;
     }
-    public static Mat thinning(Mat m){
-        Core.divide(m,new Scalar(255),m);
-       Mat prev = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
-        Mat diff = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(0));
-        System.out.println("Chiamo iteration before cleaning"+Core.countNonZero(m)+"---------------------------");
-        do {
-            m = thinningIteration(m, 0);
-            m = thinningIteration(m, 1);
-            Core.absdiff(m, prev, diff);
-            m.copyTo(prev);
-            System.out.println("Cleaning up to"+Core.countNonZero(diff)+" white spaces ---------------------------");
-        }
-        while (Core.countNonZero(diff) > 0);
-        System.out.println("Chiamo iteration after cleaning"+Core.countNonZero(m)+"-------------------------");
 
-        Core.multiply(m,new Scalar(255),m);
+    public static SparseArray<Double> matToSparceArray(Mat source) {
+        if (source == null || source.empty()) {
+            return null;
+        }
+        SparseArray<Double> result = new SparseArray<Double>();
+
+        for (int i=0; i<source.height(); i++) {
+            for (int j=0; j<source.width();j++){
+
+                result.put( (i*source.width())+j ,source.get(j,i)[0]);
+            }
+
+        }
+        return result;
+    }
+
+    public static void printMatrix(SparseArray<Double> source, Mat dimentionSource) {
+
+        int i = 0,j = 0;
+
+        for (int k = 0;k < source.size();k++) {
+
+            System.out.print(" " + source.get(i*dimentionSource.width()+j) + " ");
+            j++;
+            if (k % dimentionSource.width() == 0 && k != 0) {
+                i++;
+                j=0;
+                System.out.println("---------------------------");
+                if( k>10*dimentionSource.width() ){break;}
+            }
+
+        }
+
+
+    }
+
+    public static void printOpenCVMatrix(Mat source) {
+
+        for (int i=0;i<source.height();i++) {
+            for (int j=0;j<source.width();j++) {
+                System.out.print(" "+source.get(j,i)[0]+" ");
+            }
+            //if( i>10 ){break;}
+            System.out.println("--------------------------------");
+        }
+    }
+
+
+
+    public static Mat convertSparseArrayToMat(SparseArray<Double> source, int height, int width){
+        Mat result = new Mat(height,width,CvType.CV_8UC1,Scalar.all(0));
+        for (int i=0;i<height;i++) {
+            for (int j=0; j<width;j++) {
+                result.put(j, i, source.get(i*width+j));
+            }
+        }
+        return result;
+    }
+
+    public static SparseArray<Double> thinning(SparseArray<Double> m, int height, int width){
+
+        int startingNonZeroPoints = 0;
+        SparseArray<Double> prev = new SparseArray<Double>();
+        SparseArray<Double> diff = new SparseArray<Double>();
+        for(int i=0; i<m.size(); i++){
+            m.put(i,m.get(i)/255);
+            prev.put(i,0.0);
+            if ( m.get(i) != 0 ){
+                startingNonZeroPoints++;
+            }
+        }
+
+        System.out.println("white points before thinning:"+startingNonZeroPoints+"-------------------------");
+        startingNonZeroPoints = 0;
+        int nonZeroDiff;
+        do {
+            m = thinningIteration(m, height,width, 0);
+            m = thinningIteration(m,height,width, 1);
+
+            nonZeroDiff = 0;
+            for(int i=0; i<m.size(); i++){
+
+                if(m.get(i)!=null && prev.get(i)!=null) {
+                    diff.put(i, Math.abs(m.get(i)) - Math.abs(prev.get(i)));
+                    if (diff.get(i) != 0) {
+                        nonZeroDiff++;
+                    }
+                    prev.put(i, m.get(i));
+                }
+            }
+
+            System.out.println("Cleaning up to"+nonZeroDiff+" white spaces ---------------------------");
+        }
+        while (nonZeroDiff > 0);
+
+        for(int i=0; i<m.size(); i++){
+            if ( m.get(i) != 0 ){
+                startingNonZeroPoints++;
+            }
+        }
+        System.out.println("white points after thinning:"+startingNonZeroPoints+"-------------------------");
+
+        for(int i=0; i<m.size(); i++){
+            m.put(i,m.get(i)*255);
+
+        }
+
         return m;
     }
 
-    public static Mat thinningIteration(Mat m, int iter){
-        Mat marker = new Mat(m.height(),m.width(),CvType.CV_8UC1,Scalar.all(1));
+    public static SparseArray<Double> thinningIteration(SparseArray<Double> m, int height, int width, int iter){
+        SparseArray<Double> marker = new SparseArray<Double>();
+        for(int i=0; i<m.size(); i++){
+            marker.put(i,1.0);
+        }
         double[] p = new double[8];
-        for (int i = 1; i < m.height()-1; i++) {
-            for (int j = 1; j < m.width() - 1; j++) {
-                if (m.get(j, i)[0] != 0) {
-                    p[0] = m.get(j, i - 1)[0];
-                    p[1] = m.get(j + 1, i - 1)[0];
-                    p[2] = m.get(j + 1, i)[0];
-                    p[3] = m.get(j + 1, i + 1)[0];
-                    p[4] = m.get(j, i + 1)[0];
-                    p[5] = m.get(j - 1, i + 1)[0];
-                    p[6] = m.get(j - 1, i)[0];
-                    p[7] = m.get(j - 1, i - 1)[0];
+        for (int i = 1; i < height - 1; i++) {
+            for (int j = 1; j < width - 1; j++) {
+                if (m.get(i * width + j) != 0) {
+                    p[0] = m.get( (i-1) * width + j);
+                    p[1] = m.get( (i-1) * width + (j+1));
+                    p[2] = m.get( i * width + (j+1));
+                    p[3] = m.get( (i+1) * width + (j+1));
+                    p[4] = m.get( (i+1) * width + j);
+                    p[5] = m.get( (i+1) * width + (j-1));
+                    p[6] = m.get( i * width + (j-1));
+                    p[7] = m.get( (i-1) * width + (j-1));
                     int A = ((p[0] == 0 && p[1] == 1) ? 1 : 0) + ((p[1] == 0 && p[2] == 1) ? 1 : 0) +
                             ((p[2] == 0 && p[3] == 1) ? 1 : 0) + ((p[3] == 0 && p[4] == 1) ? 1 : 0) +
                             ((p[4] == 0 && p[5] == 1) ? 1 : 0) + ((p[5] == 0 && p[6] == 1) ? 1 : 0) +
@@ -152,16 +250,26 @@ public class ImageUtils {
                     double m2 = (iter == 0 ? (p[2] * p[4] * p[6]) : (p[0] * p[4] * p[6]));
 
                     if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0 ) {
-                        marker.put(j, i, 0);
+                        marker.put( (i*width)+j ,0.0);
                     }
                 }
             }
         }
         System.out.println("torno al chiamante");
-        Core.bitwise_and(m,marker,m);
+        for(int i=0; i<m.size(); i++){
+            if (m.get(i) == 1 && marker.get(i) == 1) {
+                m.put(i, 1.0);
+            }else{
+                m.put(i, 0.0);
+            }
+
+        }
 
         return m;
     }
+
+
+
     public static Uri mergeAndSave(Bitmap bmp, Bitmap bmp2, Context c){
         bmp2= getResizedBitmap(bmp2,bmp.getWidth(),bmp.getHeight());
         Bitmap bmpf = overlay(bmp,bmp2);
@@ -202,24 +310,11 @@ public class ImageUtils {
             k = k - 0.5*(highThreshold+lowThreshold);
         }while(cont<=12);
 
-        ///////////////////momentanuos print
-       /* bmpf = getResizedBitmap(bmpf,cannedImg.width(),cannedImg.height());
-        Utils.matToBitmap(cannedImg,bmpf);
-        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
-        FileOutputStream outputStream = null;
-        try {
-            outputStream = new FileOutputStream(imageFile);
-            bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-            outputStream.flush();
-            outputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
-//////////////////////////////
-*/
-        Mat thinnedImg = thinning(cannedImg);
-        //Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_GRAY2RGB);
+
+        SparseArray<Double> cannedImgMatrix = matToSparceArray(p.m);
+        SparseArray<Double> thinned = thinning(cannedImgMatrix, cannedImg.height(),cannedImg.width());
+        Mat thinnedImg = convertSparseArrayToMat(thinned,cannedImg.height(),cannedImg.width());
+
 
         bmpf = getResizedBitmap(bmpf,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmpf);
