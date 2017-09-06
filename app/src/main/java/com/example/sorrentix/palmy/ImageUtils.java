@@ -250,11 +250,10 @@ public class ImageUtils {
         MatOfDouble mean = new MatOfDouble(),
                 stdDev = new MatOfDouble();
         Core.meanStdDev(croppedImg, mean, stdDev);
-        double highThreshold = mean.get(0, 0)[0] + stdDev.get(0, 0)[0];
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*6;
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
         double [][]matrixCanned = matToMatrix(croppedImg);
         double [][]matrixCannedImg;
-
 
         do {
             cont = 0;
@@ -273,14 +272,13 @@ public class ImageUtils {
             }
             cont = (cont / (croppedImg.height() * croppedImg.width())) * 100;
 
-            k = k - 0.5*(highThreshold+lowThreshold);
+            k = k - 0.1*(highThreshold+lowThreshold);
         }while(cont<=12);
 
         matrixCannedImg = pointIsolation(matrixCannedImg,croppedImg.height(),croppedImg.width());
         Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, croppedImg.height(),croppedImg.width());
         double[][] thinned = thinning(enlarged.m, croppedImg.height(),croppedImg.width());
         Mat thinnedImg = convertMatrixToMat(thinned,croppedImg.height(),croppedImg.width());
-
 
 
         MatOfInt4 hough = new MatOfInt4();
@@ -497,7 +495,7 @@ public class ImageUtils {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 //////6* orla
-                if (result[offset] == 0 && magnitude[offset] >= highThreshold*6) {
+                if (result[offset] == 0 && magnitude[offset] >= highThreshold) {
                     follow(result, x, y, offset,width, height, (int)lowThreshold, magnitude);
                 }
                 offset++;
@@ -574,7 +572,7 @@ public class ImageUtils {
             for (int j = y1; j < y2 - 1; j++) {
                 if (m[i][j] >= 150.0)
                     cont++;
-                if (cont == 30)
+                if (cont == 20)
                     return true;
             }
         }

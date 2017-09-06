@@ -56,6 +56,7 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
             Camera.Parameters params = mCamera.getParameters();
             if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
                 params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+            params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
             mCamera.setParameters(params);
             mCamera.setPreviewTexture(surface);
             mCamera.startPreview();
@@ -76,6 +77,9 @@ public class CameraActivity extends Activity implements TextureView.SurfaceTextu
         Bitmap bmp = mTextureView.getBitmap();
         Bitmap bmp2 = BitmapFactory.decodeResource(this.getResources(),mask_piena);
         Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
+        Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+        mCamera.setParameters(params);
         Uri fileUri = ImageUtils.mergeAndSave(bmp,bmp2,this);
         MediaScannerConnection.scanFile(this, new String[]{fileUri.getPath()}, null, this);
         Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
