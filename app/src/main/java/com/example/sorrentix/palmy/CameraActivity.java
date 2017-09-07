@@ -151,6 +151,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         try {
             mCamera.setPreviewDisplay(holder);
+
             mCamera.startPreview();
         }
         catch (Exception e) {
@@ -217,6 +218,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         }
 
         MediaScannerConnection.scanFile(this, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, this);*/
+
         MediaScannerConnection.scanFile(this, new String[]{fileUri.getPath()}, null, this);
 
         Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
