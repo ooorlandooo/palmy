@@ -266,21 +266,9 @@ public class ImageUtils {
 
 
 
-    public static Uri mergeAndSave(Bitmap bmp, Bitmap bmp2, Context c){
-        bmp2= getResizedBitmap(bmp2,bmp.getWidth(),bmp.getHeight());
-        Bitmap bmpf = overlay(bmp,bmp2);
-        Mat matsrc = new Mat(bmpf.getHeight(),bmpf.getWidth(), CvType.CV_8UC3, new Scalar(4));
-        Utils.bitmapToMat(bmpf,matsrc);
-
-
-        //Ritaglio del palmo
-        //TODO scegliere i punti in modo dinamico
-        Point p1 = new Point(200,500),
-              p2 = new Point(950,500),
-              p3 = new Point(200,1250),
-              p4 = new Point(950,1250);
-        Rect rectCrop = new Rect(p1,p4); //new Rect((int)p1.x, (int)p1.y , (int)(p4.x-p1.x+1), (int)(p4.y-p1.y+1));
-        Mat croppedImg= new Mat(matsrc,rectCrop);//submat(rectCrop);
+    public static Uri mergeAndSave(Bitmap bmp, Context c){
+        Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
+        Utils.bitmapToMat(bmp,croppedImg);
 
         Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_BGR2GRAY);
         //Approccio cinese
@@ -321,14 +309,14 @@ public class ImageUtils {
             Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
         }
 
-        bmpf = getResizedBitmap(bmpf,thinnedImg.width(),thinnedImg.height());
-        Utils.matToBitmap(thinnedImg,bmpf);
+        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+        Utils.matToBitmap(thinnedImg,bmp);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
         try {
             outputStream = new FileOutputStream(imageFile);
-            bmpf.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
             outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
