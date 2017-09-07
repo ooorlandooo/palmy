@@ -62,6 +62,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     public void takeScreenShot(View v) {
         System.out.println("foto scattata");
         mCamera.takePicture(null,null,this);
+
     }
 
     @Override
@@ -84,6 +85,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         mCamera.setDisplayOrientation(90);
         Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+
 
         if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
@@ -201,7 +204,10 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         //System.out.println("mammt"+(deviceHeight/2-deviceWidth/2)+"  dw/2"+deviceWidth/2+" dh/2"+deviceHeight/2+" btn "+   btn.getHeight());
         //TODO aggiungere il controllo sulla rotazione delll'immagine e migliorare la precisione del taglio
         Bitmap cropped = Bitmap.createBitmap(rotated,1,(best_preview.width + btn.getHeight())/2-best_preview.height/2 ,deviceWidth-1,deviceWidth-1);
-        Bitmap resized = Bitmap.createScaledBitmap(cropped,500,500,false);
+        Bitmap resized = Bitmap.createScaledBitmap(cropped,650,650,false);
+        Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+        mCamera.setParameters(params);
         Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
         Uri fileUri = ImageUtils.mergeAndSave(resized,this);
 
