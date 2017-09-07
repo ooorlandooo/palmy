@@ -2,6 +2,7 @@ package com.example.sorrentix.palmy;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.media.MediaScannerConnection;
@@ -231,43 +232,59 @@ public class ImageUtils {
         Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_BGR2GRAY);
         //Approccio cinese
         Imgproc.equalizeHist(croppedImg,croppedImg);
-        Imgproc.medianBlur(croppedImg,croppedImg,25);
+        Imgproc.medianBlur(croppedImg,croppedImg,11);
+        salva(croppedImg, bmp, c);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
         MatOfDouble mean = new MatOfDouble(),
                 stdDev = new MatOfDouble();
         Core.meanStdDev(croppedImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*6;
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
         double [][]matrixCanned = matToMatrix(croppedImg);
         double [][]matrixCannedImg;
 
         do {
             cont = 0;
-            highThreshold+=k;
+
+            highThreshold += k;
             Log.e(TAG, "mergeAndSave: HT=" + highThreshold + " - LT=" + lowThreshold);
 
-            matrixCannedImg = cannyEdgeDetector(matrixCanned,(int)croppedImg.width(),(int)croppedImg.height(),highThreshold,lowThreshold);
-            p = enlarging(matrixCannedImg,croppedImg.height(),croppedImg.width());
+            matrixCannedImg = cannyEdgeDetector(matrixCanned, croppedImg.width(), croppedImg.height(), highThreshold, lowThreshold);
+            salva(convertMatrixToMat(matrixCannedImg, croppedImg.width(), croppedImg.height()), bmp, c);
 
-            for (int i = 0; i < croppedImg.height(); i++){
-                for (int j = 0; j < croppedImg.width(); j++){
-                    if (p.m[i][j]!=0){
+            p = enlarging(matrixCannedImg, croppedImg.height(), croppedImg.width());
+            salva(convertMatrixToMat(p.m,croppedImg.width(), croppedImg.height()), bmp, c);
+
+
+            for (int i = 0; i < croppedImg.height(); i++) {
+                for (int j = 0; j < croppedImg.width(); j++) {
+                    if (p.m[i][j] != 0) {
                         cont++;
                     }
                 }
             }
             cont = (cont / (croppedImg.height() * croppedImg.width())) * 100;
 
-            k = k - 0.1*(highThreshold+lowThreshold);
-        }while(cont<=12);
+            if (cont <= 20){
+                    k = k - 0.5 * (highThreshold + lowThreshold);
+            k = -abs(k);
+        }else if(cont >= 27 || highThreshold<lowThreshold) {
+                k = (k + 0.5 * (highThreshold + lowThreshold))/2;
+                k=abs(k);
+            }
+
+            System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
+        }while(cont<=20 || cont >=27);
 
         matrixCannedImg = pointIsolation(matrixCannedImg,croppedImg.height(),croppedImg.width());
+        salva(convertMatrixToMat(matrixCannedImg,croppedImg.width(),  croppedImg.height()), bmp, c);
+
         Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, croppedImg.height(),croppedImg.width());
         double[][] thinned = thinning(enlarged.m, croppedImg.height(),croppedImg.width());
         Mat thinnedImg = convertMatrixToMat(thinned,croppedImg.height(),croppedImg.width());
-
+        salva(thinnedImg, bmp, c);
 
         MatOfInt4 hough = new MatOfInt4();
 
@@ -560,7 +577,7 @@ public class ImageUtils {
             for (int j = y1; j < y2 - 1; j++) {
                 if (m[i][j] >= 150.0)
                     cont++;
-                if (cont == 20)
+                if (cont == 3)
                     return true;
             }
         }
@@ -621,6 +638,27 @@ public class ImageUtils {
                 m[i][j] = 255.0;
             }
         }
+    }
+
+    public static void salva(Mat img,Bitmap bmp,Context c){
+
+        Bitmap bmp2 = Bitmap.createBitmap(bmp);
+         bmp2 = getResizedBitmap(bmp2,img.width(),img.height());
+        Utils.matToBitmap(img,bmp2);
+
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmp2.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
+
     }
 
 }
