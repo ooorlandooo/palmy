@@ -1,12 +1,12 @@
 package com.example.sorrentix.palmy;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -14,11 +14,15 @@ import android.hardware.Camera;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.example.sorrentix.palmy.util.Message;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,18 +31,27 @@ import java.util.List;
 
 public class CameraActivity extends Activity implements SurfaceHolder.Callback,
                                                         MediaScannerConnection.OnScanCompletedListener,
-                                                        Camera.PictureCallback{
+                                                        Camera.PictureCallback,
+                                                        MyResultReceiver.Receiver {
+
     private static final String TAG = "CameraActivity";
 
     private SurfaceView cameraView, transparentView;
     private SurfaceHolder holder, holderTransparent;
-
+    private Button btn;
     private int deviceWidth;
     private int deviceHeight;
 
     private Camera mCamera;
 
     private Camera.Size best_preview;
+
+    private MyResultReceiver mReceiver;
+
+    private FileHandler fileHandler = new FileHandler();
+    private File imageFile;
+    private String imagePath;
+
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +70,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         deviceWidth = getScreenWidth();
         deviceHeight = getScreenHeight();
+
+        btn = (Button) findViewById(R.id.button_capture);
+
+        mReceiver = new MyResultReceiver(new Handler());
+        mReceiver.setReceiver(this);
     }
 
     public void takeScreenShot(View v) {
@@ -85,7 +103,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         mCamera.setDisplayOrientation(90);
         Camera.Parameters params = mCamera.getParameters();
-        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+       // params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
 
 
         if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
@@ -109,7 +127,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         for (Camera.Size previewSize : previewSizes){
             temp_aspect_ratio = previewSize.height/previewSize.width;
-            System.out.println("Dimensione delle merde:"+previewSize.width+" "+previewSize.height+" "+deviceWidth);
+            //System.out.println("Dimensione delle merde:"+previewSize.width+" "+previewSize.height+" "+deviceWidth);
             if (previewSize.height >= deviceWidth && previewSize.width >= (deviceHeight/2)+(deviceWidth/2) && (Math.abs(aspect_ratio-temp_aspect_ratio)<=best_aspect_ratio_diff)){
                 best_aspect_ratio_diff = Math.abs(aspect_ratio-temp_aspect_ratio);
                 best_preview = previewSize;
@@ -119,7 +137,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
 
 
-        System.out.println("Dimensione delle immagini:"+best_size);
+        //System.out.println("Dimensione delle immagini:"+best_size);
         params.setPreviewSize(best_preview.width,best_preview.height);
         params.setPictureSize(best_size.width,best_size.height);
         mCamera.setParameters(params);
@@ -194,73 +212,49 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void onPictureTaken(byte[] data, Camera camera) {
+
         Bitmap bmp = BitmapFactory.decodeByteArray(data,0,data.length);
-        //System.out.println("Dimensioni immagine: "+bmp.getWidth()+" "+bmp.getHeight());
-        //System.out.println("Dimensioni preview: "+best_preview.width+" "+best_preview.height);
-        Bitmap resized_to_preview = Bitmap.createScaledBitmap(bmp,best_preview.width,best_preview.height,false);
-        Button btn = (Button) findViewById(R.id.button_capture);
-
-        Bitmap rotated = rotateImage(resized_to_preview,90); //checkAndRotate(,bmp);
-        //System.out.println("mammt"+(deviceHeight/2-deviceWidth/2)+"  dw/2"+deviceWidth/2+" dh/2"+deviceHeight/2+" btn "+   btn.getHeight());
-        //TODO aggiungere il controllo sulla rotazione delll'immagine e migliorare la precisione del taglio
-        Bitmap cropped = Bitmap.createBitmap(rotated,1,(best_preview.width + btn.getHeight())/2-best_preview.height/2 ,deviceWidth-1,deviceWidth-1);
-        Bitmap resized = Bitmap.createScaledBitmap(cropped,650,650,false);
-        Camera.Parameters params = mCamera.getParameters();
-        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
-        mCamera.setParameters(params);
-        Toast.makeText(this, "CHIAMO IL SALVATAGGIO", Toast.LENGTH_SHORT).show();
-        Uri fileUri = ImageUtils.mergeAndSave(resized,this);
-
-        /*FileHandler fileHandler = new FileHandler();
-        File imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
         try {
             outputStream = new FileOutputStream(imageFile);
-            resized.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
             outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        imagePath = fileHandler.getUriFromFile(imageFile).getPath();
+        MediaScannerConnection.scanFile(this, new String[]{imagePath}, null, this);
 
-        MediaScannerConnection.scanFile(this, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, this);*/
+        launchLinesExtractorService();//FINE
 
-        MediaScannerConnection.scanFile(this, new String[]{fileUri.getPath()}, null, this);
-
-        Toast.makeText(this, "FINE SALVATAGGIO", Toast.LENGTH_SHORT).show();
     }
 
-/*
-    public static Bitmap checkAndRotate(String photoPath, Bitmap bitmap){
-        try {
-            ExifInterface ei = null;
-            ei = new ExifInterface() //new ExifInterface(photoPath);
-            int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-            switch(orientation) {
-                case ExifInterface.ORIENTATION_ROTATE_90:
-                    bitmap = rotateImage(bitmap, 90);
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_180:
-                    bitmap = rotateImage(bitmap, 180);
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_270:
-                    bitmap = rotateImage(bitmap, 270);
-                    break;
-            }
-            return bitmap;
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void launchLinesExtractorService() {
+        Toast.makeText(this, "CHIAMO IL SERVICE", Toast.LENGTH_SHORT).show();
+        Intent i = new Intent(this, LinesExtractorService.class);
+        // Add extras to the bundle
+        i.putExtra(Message.RECEIVER_TAG, mReceiver);
+        i.putExtra(Message.IMG_PATH, imagePath);
+        i.putExtra(Message.BTN_HEIGHT, btn.getHeight());
+        i.putExtra(Message.PREVIEW_WIDTH, best_preview.width);
+        i.putExtra(Message.PREVIEW_HEIGHT, best_preview.height);
+        i.putExtra(Message.DEVICE_WIDTH, deviceWidth);
+        i.putExtra(Message.NOTI_ICON, R.drawable.ic_stat_compare);
+        // Start the service
+        System.out.println("chiamo il service");
+        startService(i);
+        System.out.println("Dopo start service");
+    }
+
+
+    @Override//METODO IN CUI SARA' MOSTRATA L'IMMAGINE CON LE LINEE SOPRA, INVOCATO AL TERMINE DEL SERVICE
+    public void onReceiveResult(int resultCode, Bundle resultData) {
+        Toast.makeText(this, "FINE SERVICE", Toast.LENGTH_SHORT).show();
+        if (resultCode == RESULT_OK) {
+            String newImagePath = resultData.getString(Message.IMG_PATH);
+            MediaScannerConnection.scanFile(this, new String[]{newImagePath}, null, this);
         }
-        return null;
-    }
-*/
-    private static Bitmap rotateImage(Bitmap source, float angle) {
-        Bitmap retVal;
-
-        Matrix matrix = new Matrix();
-        matrix.postRotate(angle);
-        retVal = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
-
-        return retVal;
     }
 }

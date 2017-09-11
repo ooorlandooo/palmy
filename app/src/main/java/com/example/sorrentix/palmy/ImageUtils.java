@@ -4,9 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
-import android.provider.Settings;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -18,15 +16,12 @@ import org.opencv.core.MatOfDouble;
 
 import org.opencv.core.MatOfInt4;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-
-import static java.lang.Math.abs;
 
 /**
  * Created by ALESSANDROSERRAPICA on 25/07/2017.
@@ -46,9 +41,9 @@ public class ImageUtils {
         private T m;
         private S c;
 
-        Pair(T mat, S cont) {
-            m=mat;
-            c=cont;
+        Pair(T m, S c) {
+            this.m=m;
+            this.c=c;
         }
     }
 
@@ -224,21 +219,21 @@ public class ImageUtils {
 
 
 
-    public static Uri mergeAndSave(Bitmap bmp, Context c){
+    public static Uri mergeAndSave(Bitmap bmp, Context c){//TODO MOVE TO SERVICE
         Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
         Utils.bitmapToMat(bmp,croppedImg);
 
         Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_BGR2GRAY);
         //Approccio cinese
         Imgproc.equalizeHist(croppedImg,croppedImg);
-        Imgproc.medianBlur(croppedImg,croppedImg,25);
+        Imgproc.medianBlur(croppedImg,croppedImg,15);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
         MatOfDouble mean = new MatOfDouble(),
-                stdDev = new MatOfDouble();
+                    stdDev = new MatOfDouble();
         Core.meanStdDev(croppedImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*6;
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*10;
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
         double [][]matrixCanned = matToMatrix(croppedImg);
         double [][]matrixCannedImg;
@@ -248,7 +243,7 @@ public class ImageUtils {
             highThreshold+=k;
             Log.e(TAG, "mergeAndSave: HT=" + highThreshold + " - LT=" + lowThreshold);
 
-            matrixCannedImg = cannyEdgeDetector(matrixCanned,(int)croppedImg.width(),(int)croppedImg.height(),highThreshold,lowThreshold);
+            matrixCannedImg = cannyEdgeDetector(matrixCanned,croppedImg.width(),croppedImg.height(),highThreshold,lowThreshold);
             p = enlarging(matrixCannedImg,croppedImg.height(),croppedImg.width());
 
             for (int i = 0; i < croppedImg.height(); i++){
@@ -272,7 +267,6 @@ public class ImageUtils {
         MatOfInt4 hough = new MatOfInt4();
 
         Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
-        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
         for (int i = 0; i < hough.rows(); i++) {
@@ -281,7 +275,7 @@ public class ImageUtils {
             Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
         }
 
-        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+
         Utils.matToBitmap(thinnedImg,bmp);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
