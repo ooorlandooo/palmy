@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.util.Log;
 import android.util.SparseArray;
@@ -76,6 +77,7 @@ public class ImageUtils {
 
         for (int i=0; i<source.height(); i++) {
             for (int j=0; j<source.width();j++){
+              //  System.out.println("I= "+i+" J= "+j);
                 result[i][j] = source.get(j,i)[0];
             }
 
@@ -219,7 +221,7 @@ public class ImageUtils {
 
 
 
-    public static Uri mergeAndSave(Bitmap bmp, Context c){//TODO MOVE TO SERVICE
+    public static Uri mergeAndSave(Bitmap bmp, Context c){
         Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
         Utils.bitmapToMat(bmp,croppedImg);
 
@@ -227,46 +229,64 @@ public class ImageUtils {
         //Approccio cinese
         Imgproc.equalizeHist(croppedImg,croppedImg);
         Imgproc.medianBlur(croppedImg,croppedImg,15);
+        salva(croppedImg, bmp, c);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
         MatOfDouble mean = new MatOfDouble(),
-                    stdDev = new MatOfDouble();
+                stdDev = new MatOfDouble();
         Core.meanStdDev(croppedImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*10;
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
+        System.out.println("DIM CROPPED: "+croppedImg.width()+"*"+croppedImg.height());
         double [][]matrixCanned = matToMatrix(croppedImg);
         double [][]matrixCannedImg;
 
         do {
             cont = 0;
-            highThreshold+=k;
+
+            highThreshold += k;
             Log.e(TAG, "mergeAndSave: HT=" + highThreshold + " - LT=" + lowThreshold);
 
-            matrixCannedImg = cannyEdgeDetector(matrixCanned,croppedImg.width(),croppedImg.height(),highThreshold,lowThreshold);
-            p = enlarging(matrixCannedImg,croppedImg.height(),croppedImg.width());
+            matrixCannedImg = cannyEdgeDetector(matrixCanned, croppedImg.width(), croppedImg.height(), highThreshold, lowThreshold);
+            salva(convertMatrixToMat(matrixCannedImg, croppedImg.width(), croppedImg.height()), bmp, c);
 
-            for (int i = 0; i < croppedImg.height(); i++){
-                for (int j = 0; j < croppedImg.width(); j++){
-                    if (p.m[i][j]!=0){
+            p = enlarging(matrixCannedImg, croppedImg.height(), croppedImg.width());
+            salva(convertMatrixToMat(p.m,croppedImg.width(), croppedImg.height()), bmp, c);
+
+
+            for (int i = 0; i < croppedImg.height(); i++) {
+                for (int j = 0; j < croppedImg.width(); j++) {
+                    if (p.m[i][j] != 0) {
                         cont++;
                     }
                 }
             }
             cont = (cont / (croppedImg.height() * croppedImg.width())) * 100;
 
-            k = k - 0.1*(highThreshold+lowThreshold);
-        }while(cont<=12);
+            if (cont <= 20){
+                k = k - 0.5 * (highThreshold + lowThreshold);
+                k = -Math.abs(k);
+            }else if(cont >= 27 || highThreshold<lowThreshold) {
+                k = (k + 0.5 * (highThreshold + lowThreshold))/2;
+                k=Math.abs(k);
+            }
+
+            System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
+        }while(cont<=20 || cont >=27);
 
         matrixCannedImg = pointIsolation(matrixCannedImg,croppedImg.height(),croppedImg.width());
+        salva(convertMatrixToMat(matrixCannedImg,croppedImg.width(),  croppedImg.height()), bmp, c);
+
         Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, croppedImg.height(),croppedImg.width());
         double[][] thinned = thinning(enlarged.m, croppedImg.height(),croppedImg.width());
         Mat thinnedImg = convertMatrixToMat(thinned,croppedImg.height(),croppedImg.width());
-
+        salva(thinnedImg, bmp, c);
 
         MatOfInt4 hough = new MatOfInt4();
 
         Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
+        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
         for (int i = 0; i < hough.rows(); i++) {
@@ -275,7 +295,7 @@ public class ImageUtils {
             Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
         }
 
-
+        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
@@ -303,7 +323,7 @@ public class ImageUtils {
 
     public static double[][] cannyEdgeDetector(double[][] source,int width, int height, double highThreshold, double lowThreshold){
         double []result = new double[width*height];
-        double [][]resultTwodim = new double[width][height];
+        double [][]resultTwodim = new double[height][width];
         // statics
         double GAUSSIAN_CUT_OFF = 0.005f;
         double MAGNITUDE_SCALE = 100F;
@@ -320,8 +340,8 @@ public class ImageUtils {
         double [] yGradient = new double[width*height];
         int[] magnitude = new int[width*height];
 
-        for (int i=0;i<width;i++) {
-            for (int j=0;j<height;j++){
+        for (int i=0;i<height;i++) {
+            for (int j=0;j<width;j++){
                 result[i*width+j] = source[i][j];
             }
         }
@@ -484,8 +504,8 @@ public class ImageUtils {
             }
         }
 
-        for (int i=0;i<width;i++) {
-            for (int j=0;j<height;j++){
+        for (int i=0;i<height;i++) {
+            for (int j=0;j<width;j++){
                 resultTwodim[i][j]=result[i*width+j];
             }
         }
@@ -615,6 +635,27 @@ public class ImageUtils {
                 m[i][j] = 255.0;
             }
         }
+    }
+
+    public static void salva(Mat img,Bitmap bmp,Context c){
+
+        Bitmap bmp2 = Bitmap.createBitmap(bmp);
+        bmp2 = getResizedBitmap(bmp2,img.width(),img.height());
+        Utils.matToBitmap(img,bmp2);
+
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmp2.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
+
     }
 
 }

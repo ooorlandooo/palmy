@@ -1,6 +1,8 @@
 package com.example.sorrentix.palmy;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -15,6 +17,8 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcelable;
+import android.provider.Settings;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -26,21 +30,22 @@ import com.example.sorrentix.palmy.util.Message;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.List;
 
-
+@SuppressLint("ParcelCreator")
 public class CameraActivity extends Activity implements SurfaceHolder.Callback,
                                                         MediaScannerConnection.OnScanCompletedListener,
                                                         Camera.PictureCallback,
-                                                        MyResultReceiver.Receiver {
+                                                        MyResultReceiver.Receiver{
 
     private static final String TAG = "CameraActivity";
 
     private SurfaceView cameraView, transparentView;
     private SurfaceHolder holder, holderTransparent;
     private Button btn;
-    private int deviceWidth;
-    private int deviceHeight;
+    private double deviceWidth;
+    private double deviceHeight;
 
     private Camera mCamera;
 
@@ -51,7 +56,9 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     private FileHandler fileHandler = new FileHandler();
     private File imageFile;
     private String imagePath;
-
+    private double scaledX;
+    private double scaledY;
+    private Camera.Size best_size;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,8 +75,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         holderTransparent.setFormat(PixelFormat.TRANSLUCENT);
         transparentView.setZOrderMediaOverlay(true);
 
-        deviceWidth = getScreenWidth();
-        deviceHeight = getScreenHeight();
+
 
         btn = (Button) findViewById(R.id.button_capture);
 
@@ -89,6 +95,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
 
+        deviceWidth = cameraView.getWidth();
+        deviceHeight = cameraView.getHeight();
         try {
             synchronized (holder){
                 draw();
@@ -103,25 +111,34 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
         mCamera.setDisplayOrientation(90);
         Camera.Parameters params = mCamera.getParameters();
-       // params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
 
 
         if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
 
         List<Camera.Size> imageSizes = mCamera.getParameters().getSupportedPictureSizes();
-
-        Camera.Size best_size = imageSizes.get(imageSizes.size()-1);
+        double surfaceAspect = deviceHeight/deviceWidth;
+         best_size = imageSizes.get(imageSizes.size()-1);
+        double temp_aspect_ratio = 0;
+        double best_aspect_ratio_diff = 100;
         for (Camera.Size imgSize : imageSizes){
-            if (imgSize.height >= deviceWidth && imgSize.width >= (deviceHeight/2)+(deviceWidth/2)){
+            System.out.println("cuyrrent evaluating size: width:"+imgSize.width+"height"+imgSize.height);
+            System.out.println("best_aspect_ratio_diff:"+best_aspect_ratio_diff+" temp_aspect_ratio"+temp_aspect_ratio+" surfaceAspect"+surfaceAspect);
+            temp_aspect_ratio = (double)(imgSize.width)/(double)(imgSize.height);
+            if (imgSize.height >= deviceWidth && imgSize.width >= (deviceHeight/2)+(deviceWidth/2) && (Math.abs(surfaceAspect-temp_aspect_ratio)<=best_aspect_ratio_diff)){
                 best_size = imgSize;
-                break;
+                best_aspect_ratio_diff = Math.abs(surfaceAspect-temp_aspect_ratio);
             }
         }
-
-        double aspect_ratio = best_size.height/best_size.width;
-        double best_aspect_ratio_diff = 100;
-        double temp_aspect_ratio = 0;
+        scaledX = best_size.height/deviceWidth;
+        scaledY = best_size.width/deviceHeight;
+        System.out.println("DEVICE: deviceWidth="+deviceWidth+" deviceheight="+deviceHeight);
+        System.out.println("FATTORI DI SCALA: X="+scaledX+" Y="+scaledY);
+        System.out.println("BEST SIZE: "+best_size.width+"x"+best_size.height);
+       double aspect_ratio = best_size.height/best_size.width;
+         best_aspect_ratio_diff = 100;
+         temp_aspect_ratio = 0;
         List<Camera.Size> previewSizes = mCamera.getParameters().getSupportedPreviewSizes();
         best_preview = previewSizes.get(imageSizes.size()-1);
 
@@ -131,7 +148,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
             if (previewSize.height >= deviceWidth && previewSize.width >= (deviceHeight/2)+(deviceWidth/2) && (Math.abs(aspect_ratio-temp_aspect_ratio)<=best_aspect_ratio_diff)){
                 best_aspect_ratio_diff = Math.abs(aspect_ratio-temp_aspect_ratio);
                 best_preview = previewSize;
-                if (best_aspect_ratio_diff == 0) break;
+              if (best_aspect_ratio_diff == 0) break;
             }
         }
 
@@ -203,22 +220,24 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(Color.GREEN);
         paint.setStrokeWidth(3);
-
-        Rect square = new Rect(1,((deviceHeight/2)-(deviceWidth/2)),deviceWidth-1,((deviceHeight/2)+(deviceWidth/2))-1); //new Rect((int) RectLeft,(int)RectTop,(int)RectRight,(int)RectBottom);
+        System.out.println("DRAW DIM: "+deviceWidth+"*"+deviceHeight);
+        System.out.println("REct x:"+(int)(deviceWidth/4)+" rect y:"+(int)((deviceHeight/2)-(deviceWidth/4))+" width:"+(int)(deviceWidth- deviceWidth/4)+"height"+(int)((deviceHeight/2)+(deviceWidth/4)));
+        Rect square = new Rect((int)(deviceWidth/4),(int)((deviceHeight/2)-(deviceWidth/4)),(int)(deviceWidth- deviceWidth/4),(int)((deviceHeight/2)+(deviceWidth/4)));  //new Rect((int) RectLeft,(int)RectTop,(int)RectRight,(int)RectBottom);        canvas.drawRect(square,paint);
         canvas.drawRect(square,paint);
-
         holderTransparent.unlockCanvasAndPost(canvas);
     }
 
     @Override
     public void onPictureTaken(byte[] data, Camera camera) {
-
+        Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+        mCamera.setParameters(params);
         Bitmap bmp = BitmapFactory.decodeByteArray(data,0,data.length);
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
         try {
             outputStream = new FileOutputStream(imageFile);
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            bmp.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
             outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
@@ -238,10 +257,13 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         i.putExtra(Message.RECEIVER_TAG, mReceiver);
         i.putExtra(Message.IMG_PATH, imagePath);
         i.putExtra(Message.BTN_HEIGHT, btn.getHeight());
-        i.putExtra(Message.PREVIEW_WIDTH, best_preview.width);
-        i.putExtra(Message.PREVIEW_HEIGHT, best_preview.height);
+        i.putExtra(Message.PREVIEW_WIDTH, best_size.width);
+        i.putExtra(Message.PREVIEW_HEIGHT, best_size.height);
         i.putExtra(Message.DEVICE_WIDTH, deviceWidth);
+        i.putExtra(Message.DEVICE_HEIGHT, deviceHeight);
         i.putExtra(Message.NOTI_ICON, R.drawable.ic_stat_compare);
+        i.putExtra(Message.SCALEDX, scaledX);
+        i.putExtra(Message.SCALEDY, scaledY);
         // Start the service
         System.out.println("chiamo il service");
         startService(i);

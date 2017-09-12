@@ -12,4 +12,7 @@ public class Message {
     public static final String PREVIEW_WIDTH = "preview_width";
     public static final String BTN_HEIGHT = "btn_height";
     public static final String DEVICE_WIDTH = "device_width";
+    public static final String SCALEDX = "scaledx";
+    public static final String SCALEDY = "scaledy";
+    public static final String DEVICE_HEIGHT= "deviceheight";
 }
