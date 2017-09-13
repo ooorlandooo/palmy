@@ -23,7 +23,6 @@ public class MainActivity extends AppCompatActivity {
 
     public  static final int PERMISSIONS_MULTIPLE_REQUEST = 123;
 
-    private String manoStato;
 
     static {
         if(OpenCVLoader.initDebug()){
@@ -38,19 +37,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
     }
-    public void donna(View v) {
-        manoStato = "sx";
+    public void startCamera(View v) {
         checkPermissions();
     }
 
-    public void uomo(View v) {
-        manoStato = "dx";
-        checkPermissions();
-    }
-
-    private void startCameraActivity(String mano){
+    private void startCameraActivity(){
         Intent camera = new Intent(this, CameraActivity.class);
-        camera.putExtra("mano",mano);
         startActivity(camera);
     }
 
@@ -72,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
                     ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
 
                 Snackbar.make(this.findViewById(android.R.id.content),
-                        "Please Grant Permissions to use application",
+                        "Per favore, accetta i permessi richiesti dall'applicazione per usarla",
                         Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
                         new View.OnClickListener() {
                             @Override
@@ -84,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
                             }
                         }).show();
             } else {
-                System.out.println("permissionsHandler: richiesta di permessi");
                 Log.e(TAG, "permissionsHandler: richiesta di permessi");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)//MANDATORY CHECK
                     requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -93,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             Log.e(TAG, "permissionsHandler: permessi già in possesso");
-            startCameraActivity(manoStato);
+            startCameraActivity();
         }
     }
 
@@ -108,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
                     if(cameraPermission && readExternalFile){
                         Log.e(TAG, "onRequestPermissionsResult: before loadStuff");
-                        startCameraActivity(manoStato);
+                        startCameraActivity();
                     } else {
                         Snackbar.make(this.findViewById(android.R.id.content),
                                 "Please Grant Permissions to use application",
