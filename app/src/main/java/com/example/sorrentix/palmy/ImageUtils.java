@@ -18,6 +18,7 @@ import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfInt4;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -223,23 +224,27 @@ public class ImageUtils {
 
     public static Uri mergeAndSave(Bitmap bmp, Context c){
         Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
+        Mat filteredImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
         Utils.bitmapToMat(bmp,croppedImg);
 
-        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_BGR2GRAY);
+        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_RGBA2GRAY);
         //Approccio cinese
         Imgproc.equalizeHist(croppedImg,croppedImg);
-        Imgproc.medianBlur(croppedImg,croppedImg,15);
-        salva(croppedImg, bmp, c);
+        //Imgproc.medianBlur(croppedImg,croppedImg,25);
+        //Imgproc.blur(croppedImg,croppedImg,new Size(25,25));
+        Imgproc.bilateralFilter(croppedImg,filteredImg,26,52,13);
+        //salva(croppedImg, bmp, c);
+        salva(filteredImg, bmp, c);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
         MatOfDouble mean = new MatOfDouble(),
                 stdDev = new MatOfDouble();
-        Core.meanStdDev(croppedImg, mean, stdDev);
+        Core.meanStdDev(filteredImg, mean, stdDev);
         double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
-        System.out.println("DIM CROPPED: "+croppedImg.width()+"*"+croppedImg.height());
-        double [][]matrixCanned = matToMatrix(croppedImg);
+        System.out.println("DIM CROPPED: "+filteredImg.width()+"*"+filteredImg.height());
+        double [][]matrixCanned = matToMatrix(filteredImg);
         double [][]matrixCannedImg;
 
         do {
@@ -248,21 +253,21 @@ public class ImageUtils {
             highThreshold += k;
             Log.e(TAG, "mergeAndSave: HT=" + highThreshold + " - LT=" + lowThreshold);
 
-            matrixCannedImg = cannyEdgeDetector(matrixCanned, croppedImg.width(), croppedImg.height(), highThreshold, lowThreshold);
-            salva(convertMatrixToMat(matrixCannedImg, croppedImg.width(), croppedImg.height()), bmp, c);
+            matrixCannedImg = cannyEdgeDetector(matrixCanned, filteredImg.width(), filteredImg.height(), highThreshold, lowThreshold);
+            //salva(convertMatrixToMat(matrixCannedImg, filteredImg.width(), filteredImg.height()), bmp, c);
 
-            p = enlarging(matrixCannedImg, croppedImg.height(), croppedImg.width());
-            salva(convertMatrixToMat(p.m,croppedImg.width(), croppedImg.height()), bmp, c);
+            p = enlarging(matrixCannedImg, filteredImg.height(), filteredImg.width());
+            //salva(convertMatrixToMat(p.m,filteredImg.width(), filteredImg.height()), bmp, c);
 
 
-            for (int i = 0; i < croppedImg.height(); i++) {
-                for (int j = 0; j < croppedImg.width(); j++) {
+            for (int i = 0; i < filteredImg.height(); i++) {
+                for (int j = 0; j < filteredImg.width(); j++) {
                     if (p.m[i][j] != 0) {
                         cont++;
                     }
                 }
             }
-            cont = (cont / (croppedImg.height() * croppedImg.width())) * 100;
+            cont = (cont / (filteredImg.height() * filteredImg.width())) * 100;
 
             if (cont <= 20){
                 k = k - 0.5 * (highThreshold + lowThreshold);
@@ -272,15 +277,15 @@ public class ImageUtils {
                 k=Math.abs(k);
             }
 
-            System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
+            //System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
         }while(cont<=20 || cont >=27);
 
-        matrixCannedImg = pointIsolation(matrixCannedImg,croppedImg.height(),croppedImg.width());
-        salva(convertMatrixToMat(matrixCannedImg,croppedImg.width(),  croppedImg.height()), bmp, c);
+        matrixCannedImg = pointIsolation(matrixCannedImg,filteredImg.height(),filteredImg.width());
+        salva(convertMatrixToMat(matrixCannedImg,filteredImg.width(),  filteredImg.height()), bmp, c);
 
-        Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, croppedImg.height(),croppedImg.width());
-        double[][] thinned = thinning(enlarged.m, croppedImg.height(),croppedImg.width());
-        Mat thinnedImg = convertMatrixToMat(thinned,croppedImg.height(),croppedImg.width());
+        Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width());
+        double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
+        Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
         salva(thinnedImg, bmp, c);
 
         MatOfInt4 hough = new MatOfInt4();
