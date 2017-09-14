@@ -140,7 +140,9 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
          best_aspect_ratio_diff = 100;
          temp_aspect_ratio = 0;
         List<Camera.Size> previewSizes = mCamera.getParameters().getSupportedPreviewSizes();
-        best_preview = previewSizes.get(imageSizes.size()-1);
+        System.out.println("preview size list has elements:"+previewSizes.size()+ " imageSizes.size-1 is:"+(imageSizes.size()-1));
+        best_preview = previewSizes.get(previewSizes.size()-1);
+
 
         for (Camera.Size previewSize : previewSizes){
             temp_aspect_ratio = previewSize.height/previewSize.width;

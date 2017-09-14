@@ -23,6 +23,7 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -220,7 +221,26 @@ public class ImageUtils {
         return m;
     }
 
-
+    public static void filteredBunch(Context c, Bitmap bmp, Mat cropped, Mat filtered, double[] kernel, double[] sigma_color, double[] sigma_space){
+        MatOfDouble mean = new MatOfDouble(),
+                stdDev = new MatOfDouble();
+        for( int i = 0; i <kernel.length; i++) {
+            Imgproc.bilateralFilter(cropped, filtered, (int)kernel[i], sigma_color[i], sigma_space[i]);
+            salva(filtered, bmp, c);
+            double [][]matrixCanned = matToMatrix(filtered);
+            double [][]matrixCannedImg;
+            Core.meanStdDev(filtered, mean, stdDev);
+            double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
+            double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
+            matrixCannedImg = cannyEdgeDetector(matrixCanned, filtered.width(), filtered.height(), highThreshold, lowThreshold);
+            salva(convertMatrixToMat(matrixCannedImg, filtered.width(), filtered.height()), bmp, c);
+            /*matrixCannedImg = cannyEdgeDetector(matrixCanned, filtered.width(), filtered.height(), highThreshold*2, lowThreshold);
+            salva(convertMatrixToMat(matrixCannedImg, filtered.width(), filtered.height()), bmp, c);
+            matrixCannedImg = cannyEdgeDetector(matrixCanned, filtered.width(), filtered.height(), highThreshold*3, lowThreshold);
+            salva(convertMatrixToMat(matrixCannedImg, filtered.width(), filtered.height()), bmp, c);*/
+            System.out.println("versione:"+(i+1)+" kernel:"+kernel[i]+" sigm_color:"+sigma_color[i]+" sigma_space:"+sigma_space[i]);
+        }
+    }
 
     public static Uri mergeAndSave(Bitmap bmp, Context c){
         Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
@@ -233,15 +253,27 @@ public class ImageUtils {
         //Imgproc.medianBlur(croppedImg,croppedImg,25);
         //Imgproc.blur(croppedImg,croppedImg,new Size(25,25));
         Imgproc.bilateralFilter(croppedImg,filteredImg,26,52,13);
+        /*altri buoni risultati con
+
+           versione:1 kernel:26.0 sigm_color:52.0 sigma_space:13.0
+           versione:2 kernel:26.0 sigm_color:40.0 sigma_space:50.0
+           versione:3 kernel:99.0 sigm_color:49.0 sigma_space:49.0
+           versione:4 kernel:99.0 sigm_color:49.0 sigma_space:198.0
+        */
+        //salva(filteredImg, bmp, c);
+
+        //filteredBunch(c, bmp, croppedImg, filteredImg, kernel, sigma_color, sigma_space);
+
+
+
         //salva(croppedImg, bmp, c);
-        salva(filteredImg, bmp, c);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
         MatOfDouble mean = new MatOfDouble(),
                 stdDev = new MatOfDouble();
         Core.meanStdDev(filteredImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*6;
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
         System.out.println("DIM CROPPED: "+filteredImg.width()+"*"+filteredImg.height());
         double [][]matrixCanned = matToMatrix(filteredImg);
@@ -285,23 +317,56 @@ public class ImageUtils {
 
         Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width());
         double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
-        Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
-        salva(thinnedImg, bmp, c);
+        double[][] differentLineMatrixArray = distinguishlines(thinned,filteredImg.height(), filteredImg.width());
 
+
+        Mat differentLineMatrixImg = convertMatrixToMat(differentLineMatrixArray,filteredImg.height(),filteredImg.width());
+        Imgproc.cvtColor(differentLineMatrixImg,differentLineMatrixImg,Imgproc.COLOR_GRAY2RGB);
+        for ( int i = 0;i<differentLineMatrixImg.height();i++){
+            for ( int j = 0;j<differentLineMatrixImg.width();j++){
+                Imgproc.line(differentLineMatrixImg, new Point(i, j), new Point(i, j), new Scalar(differentLineMatrixArray[i][j], 0, 0), 10);
+            }
+        }
+        //salva(differentLineMatrixImg, bmp, c);
+        //Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
+        //salva(thinnedImg, bmp, c);
+
+
+        /*int color = 0;
+        for (ArrayList<Double> cluster : clusters) {
+            if (color == 0) {
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(255, 0, 0), 10);
+            }else if (color == 1){
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 255, 0), 10);
+            }else if (color == 2){
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 0, 255), 10);
+            }
+            color++;
+        }*/
+
+        /*
         MatOfInt4 hough = new MatOfInt4();
 
-        Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
-        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
-        Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
+        Imgproc.HoughLinesP(differentLineMatrixImg, hough, 2, Math.PI/180, 15, 20, 20);
+        Imgproc.cvtColor(differentLineMatrixImg,differentLineMatrixImg,Imgproc.COLOR_GRAY2RGB);
+        //Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
+        //Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
         for (int i = 0; i < hough.rows(); i++) {
 
             double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
-        }
+            //Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
+            Imgproc.line(differentLineMatrixImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
 
-        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
-        Utils.matToBitmap(thinnedImg,bmp);
+        }*/
+
+        //bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+        //Utils.matToBitmap(thinnedImg,bmp);
+        bmp = getResizedBitmap(bmp,differentLineMatrixImg.width(),differentLineMatrixImg.height());
+        Utils.matToBitmap(differentLineMatrixImg,bmp);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
@@ -314,8 +379,133 @@ public class ImageUtils {
             e.printStackTrace();
         }
 
+
         return fileHandler.getUriFromFile(imageFile);
 
+    }
+
+    public static double[][] distinguishlines(double [][]matrix,double height, double width){
+        double [][]differentLineMatrixArray = new double[(int)height][(int)width];
+        for (int k = 0; k<(int)height; k++){
+            for (int h = 0; h<(int)width;h++){
+                differentLineMatrixArray[k][h] = 0;
+            }
+
+        }
+        int differentLineValue = 30;
+
+        for (int i = 0; i<(int)height; i++){
+            for (int j = 0; j<(int)width;j++){
+                if (matrix[i][j] != 0 && differentLineMatrixArray[i][j] == 0) {
+
+                    differentLineMatrixArray = createLine(differentLineMatrixArray, matrix,(int)width,(int)height, i, j,90,0,0,differentLineValue);
+                    int count = 0;
+
+
+                    for (int k = 0; k<(int)height; k++){
+                        for (int h = 0; h<(int)width;h++){
+                            if (differentLineMatrixArray[k][h] == differentLineValue && matrix[k][h] != 0){
+                                count++;
+                            }
+                        }
+                    }
+
+                    if(count > 0 && count < 35) {
+                        for (int k = 0; k<(int)height; k++){
+                            for (int h = 0; h<(int)width;h++){
+                                if (differentLineMatrixArray[k][h] == differentLineValue && matrix[k][h] != 0){
+                                    differentLineMatrixArray[k][h] = 0;
+                                    matrix[k][h] = 0;
+                                }
+                            }
+                        }
+                    } else if(count >= 35){
+                        System.out.println("create one line" + count);
+                        for (int k = 0; k<(int)height; k++){
+                            for (int h = 0; h<(int)width;h++){
+                                if (differentLineMatrixArray[k][h] == differentLineValue && matrix[k][h] != 0){
+                                    matrix[k][h] = 0;
+                                }
+                            }
+                        }
+                        differentLineValue +=30;
+                    }
+
+                }
+            }
+
+        }
+        return differentLineMatrixArray;
+    }
+
+    public static double[][] createLine(double [][]destinationMatrix, double [][]originMatrix,int width,int height, int i, int j, double range, double slope, double countedSlopes, double value){
+
+        double minRange = 60;
+        destinationMatrix[i][j] = value;
+        double medianSlope;
+        int starti  = 0;
+        int finishi = 0;
+        int startj  = 0;
+        int finishj = 0;
+
+        if(countedSlopes != 0)
+            medianSlope = slope/countedSlopes;
+        else
+            medianSlope = -1;
+
+        int param = 25;
+        if (i-param <= 0)          starti = 0;           else starti = i-param;
+        if (i+param >= height - 1) finishi = height - 1; else finishi = i+param;
+        if (j-param <= 0)          startj = 0;           else startj = j-param;
+        if (j+param >= width - 1)  finishj = width - 1;  else finishj = j+param;
+
+
+//System.out.println("finishi:"+finishi+" height:"+height+" width:"+width +" finishj"+finishj);
+        for (int k = starti; k < finishi; k++) {
+            for (int h = startj; h < finishj; h++) {
+                if (originMatrix[k][h] != 0 && destinationMatrix[k][h] == 0 && !(k == 0 && h == 0)){
+                    if(medianSlope == -1){
+                        destinationMatrix[k][h] = value;
+                        slope = slope + calculateSlope( i,  j, k, h );
+                        countedSlopes ++;
+                        medianSlope = slope/(double)countedSlopes;
+                        destinationMatrix = createLine(destinationMatrix, originMatrix,width,height, i, j, range, slope, countedSlopes, value);
+                    }else {
+                        if ( Math.abs(calculateSlope(i, j, k, h) - medianSlope) < range) {
+                            //System.out.println("median slope ="+medianSlope+" calculateSlope:"+calculateSlope(i, j, k, h)+ " Math.abs(calculateSlope(i, j, k, h) - medianSlope):"+Math.abs(calculateSlope(i, j, k, h) - medianSlope)+ " range:"+range);
+                            destinationMatrix[k][h] = value;
+                            slope = slope + calculateSlope(i, j, k, h);
+                            countedSlopes++;
+                            medianSlope = slope / (double) countedSlopes;
+                            destinationMatrix = createLine(destinationMatrix, originMatrix, width, height, i, j, range, slope, countedSlopes, value);
+                        }
+
+                    }
+                    if (range > minRange){
+                        range--;
+                    }
+                }
+            }
+        }
+        return destinationMatrix;
+    }
+
+    public static double calculateSlope(int i, int j, int k, int h ){
+
+        //double m0 = ((double)i-(double)k)/((double)j-(double)h);
+        //double m1 = ((double)i-(double)i)/((double)j-(double)0);
+        //System.out.println("Slope: "+Math.atan((m1-m0)/(1.0+m1*m0)));
+        //return ((double)k-(double)i)/(double)h-(double)j;///Math.atan((m1-m0)/(1.0+m1*m0));
+
+
+        double denominatore = ((double)h-(double)j);
+        if (denominatore == 0)
+             return 90;
+        double value = Math.toDegrees(Math.atan(((double)k-(double)i)/denominatore));
+        if (value < 0) {
+            value = 360 + value;
+        }
+        return value;
     }
 
     private static float gaussian(float x, double sigma) {
@@ -325,6 +515,7 @@ public class ImageUtils {
     private static double hypot(double x, double y) {
         return  Math.hypot(x, y);
     }
+
 
     public static double[][] cannyEdgeDetector(double[][] source,int width, int height, double highThreshold, double lowThreshold){
         double []result = new double[width*height];
@@ -563,7 +754,7 @@ public class ImageUtils {
                     if(j+20 > width -1)
                         y2 = width-1;
                     else y2 = j+20;
-                    if(!checkNeighbors(m,x1,y1,x2,y2))
+                    if(checkNeighbors(m,x1,y1,x2,y2))
                         m[i][j]=0.0;
                 }
             }
@@ -580,10 +771,10 @@ public class ImageUtils {
                 if (m[i][j] >= 150.0)
                     cont++;
                 if (cont == 20)
-                    return true;
+                    return false;
             }
         }
-        return false;
+        return true;
     }
 
     public static Pair enlarging(double[][] cannedImage,int height, int width){
