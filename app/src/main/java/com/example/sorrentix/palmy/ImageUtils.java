@@ -23,7 +23,13 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * Created by ALESSANDROSERRAPICA on 25/07/2017.
@@ -294,10 +300,125 @@ public class ImageUtils {
         //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
+        Segment [] segments = new Segment[hough.rows()];
+        double [] slopes = new double[hough.rows()];
         for (int i = 0; i < hough.rows(); i++) {
-
             double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
+            if (val[2]-val[0] == 0)
+                slopes[i]=90;
+            else
+                slopes[i] = Math.toDegrees(Math.atan((val[3]-val[1])/(val[2]-val[0])));
+            if (slopes[i]<0)
+                slopes[i] = 360 + slopes[i];
+            segments[i] = new Segment(val[0],val[1],val[2],val[3]);
+            System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0])));
+        }
+        return kMeanClustering(segments,slopes,bmp,thinnedImg);
+/*
+        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+        Utils.matToBitmap(thinnedImg,bmp);
+
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return fileHandler.getUriFromFile(imageFile);
+*/
+    }
+
+
+    private static Uri kMeanClustering(Segment[] segments, double [] slopes,Bitmap bmp, Mat thinnedImg){
+        int k = 3;//MAIN LINES
+        int passo = 0;
+        boolean sameCentroidFlag = false;
+
+        Map<Double, Segment> map = new HashMap<>();//USED FOR PRINTING
+        for (int j = 0; j < slopes.length; j++){
+            map.put(slopes[j],segments[j]);
+        }
+
+        //Random generator
+        Random r = new Random();
+        int rangeMin = 0, rangeMax = slopes.length-1;
+
+        //Select random centroid
+        double centroids [] = new double[k];
+        double prevCentroids [] = new double[k];
+        for (int i = 0; i < k; i++)
+            prevCentroids[i] = centroids[i] = slopes[r.nextInt((rangeMax - rangeMin) + 1) + rangeMin];
+        //System.out.println("NUMERO RANDOM: "+(r.nextInt((rangeMax - rangeMin) + 1) + rangeMin));
+
+        ArrayList<ArrayList<Double>> clusters = new ArrayList<ArrayList<Double>>();
+        ArrayList<Double> nodeList1 = new ArrayList<Double>();
+        clusters.add(nodeList1);
+        ArrayList<Double> nodeList2 = new ArrayList<Double>();
+        clusters.add(nodeList2);
+        ArrayList<Double> nodeList3 = new ArrayList<Double>();
+        clusters.add(nodeList3);
+
+        double temp;
+        int i = 0;
+        do {
+            for (i = 0; i < slopes.length; i++)
+                clusters.get(findNearestCentroid(centroids,slopes[i])).add(slopes[i]);
+
+            i = 0;
+            System.out.println("CENTROIDI PRIMA DEL RESET: centroids[0]: "+ centroids[0]+"centroids[1]: "+ centroids[1]+"centroids[2]: "+ centroids[2]);
+            for(int j = 0; j < k; j++) {//RESET CENTROIDS
+                centroids[j] = 0;
+                System.out.println("RESET CENTROIDI centroids["+j+"]: "+ centroids[j]);
+            }
+            for (ArrayList<Double> cluster : clusters) {
+                for (int t = 0; t < cluster.size(); t++) {//NEW CENTROIDS AS MEAN OF NEW CLUSTERS
+                    temp = cluster.remove(t);
+                    centroids[i] += temp;
+                    System.out.println("CALCOLO CENTROIDI - SOMMA centroids["+i+"]: "+ centroids[i]);
+                    System.out.println("cluster.remove("+t+"): "+ temp);
+                }
+                if(cluster.size()!=0)
+                    centroids[i]/=cluster.size();
+                System.out.println("CALCOLO CENTROIDI - DIVISIONE centroids["+i+"]: "+ centroids[i]);
+                System.out.println("CALCOLO CENTROIDI - DIVISIONE cluster.size(): "+ cluster.size());
+                i++;
+            }
+            sameCentroidFlag = true;
+            for (i = 0; i < k; i++){
+                    System.out.println("centroids["+i+"]: "+ centroids[i]+" prevcentroids["+i+"]"+ prevCentroids[i]);
+                    if ((int)centroids[i] != (int)prevCentroids[i]) {
+                        sameCentroidFlag = false;
+                        prevCentroids[i] = centroids[i];
+                    }
+            }
+            System.out.println("PASSO: "+passo + " FLAG: "+ sameCentroidFlag);
+            passo++;
+        }while (!sameCentroidFlag && passo < 100);
+
+        for (i = 0; i < slopes.length; i++)//RECOMPUTE CLUSTERS
+            clusters.get(findNearestCentroid(centroids,slopes[i])).add(slopes[i]);
+
+        int color = 0;
+        for (ArrayList<Double> cluster : clusters) {
+            if (color == 0) {
+                System.out.println("Rosso");
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(255, 0, 0), 10);
+            }else if (color == 1){
+                System.out.println("Verde");
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 255, 0), 10);
+            }else if (color == 2){
+                System.out.println("Blu");
+                for (Double slope : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 0, 255), 10);
+            }
+            color++;
         }
 
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
@@ -315,7 +436,25 @@ public class ImageUtils {
         }
 
         return fileHandler.getUriFromFile(imageFile);
+    }
 
+
+
+    private static int findNearestCentroid(double [] centroids,double slope){
+        double minVal = Double.MAX_VALUE, val;
+        int minIndex=0;
+        for (int i = 0; i < centroids.length; i++){
+            val = euclideanDistance1D(centroids[i],slope);
+            if(val < minVal){
+                minVal = val;
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
+
+    private static double euclideanDistance1D(double x, double y){
+        return Math.abs(x-y);
     }
 
     private static float gaussian(float x, double sigma) {
@@ -325,6 +464,7 @@ public class ImageUtils {
     private static double hypot(double x, double y) {
         return  Math.hypot(x, y);
     }
+
 
     public static double[][] cannyEdgeDetector(double[][] source,int width, int height, double highThreshold, double lowThreshold){
         double []result = new double[width*height];
