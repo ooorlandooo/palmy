@@ -1,6 +1,7 @@
 package com.example.sorrentix.palmy;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -23,6 +24,7 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -74,12 +76,32 @@ public class ImageUtils {
         if (source == null || source.empty()) {
             return null;
         }
+
         double[][] result = new double[source.height()][source.width()];
 
         for (int i=0; i<source.height(); i++) {
             for (int j=0; j<source.width();j++){
               //  System.out.println("I= "+i+" J= "+j);
                 result[i][j] = source.get(j,i)[0];
+            }
+
+        }
+        return result;
+    }
+
+    public static Rgb[][] matToRgbMatrix(Mat source) {
+        if (source == null || source.empty()) {
+            return null;
+        }
+
+        Rgb[][] result = new Rgb[source.height()][source.width()];
+        double [] temp = new double[3];
+        for (int i=0; i<source.height(); i++) {
+            for (int j=0; j<source.width();j++){
+                //  System.out.println("I= "+i+" J= "+j);
+                temp=source.get(j,i);
+              //  System.out.println(temp[0]+" "+temp[1]+" "+temp[2]);
+                result[i][j] = new Rgb(temp[0],temp[1],temp[2]);
             }
 
         }
@@ -232,9 +254,9 @@ public class ImageUtils {
         Imgproc.equalizeHist(croppedImg,croppedImg);
         //Imgproc.medianBlur(croppedImg,croppedImg,25);
         //Imgproc.blur(croppedImg,croppedImg,new Size(25,25));
-        Imgproc.bilateralFilter(croppedImg,filteredImg,26,52,13);
+        Imgproc.bilateralFilter(croppedImg,filteredImg,13,26,7);
         //salva(croppedImg, bmp, c);
-        salva(filteredImg, bmp, c);
+       // salva(filteredImg, bmp, c);
         double cont = 0;
         double k = 0;
         Pair<double[][], Integer> p;
@@ -269,7 +291,7 @@ public class ImageUtils {
             }
             cont = (cont / (filteredImg.height() * filteredImg.width())) * 100;
 
-            if (cont <= 20){
+            if (cont <= 20 ){
                 k = k - 0.5 * (highThreshold + lowThreshold);
                 k = -Math.abs(k);
             }else if(cont >= 27 || highThreshold<lowThreshold) {
@@ -277,7 +299,7 @@ public class ImageUtils {
                 k=Math.abs(k);
             }
 
-            //System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
+            System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
         }while(cont<=20 || cont >=27);
 
         matrixCannedImg = pointIsolation(matrixCannedImg,filteredImg.height(),filteredImg.width());
@@ -286,7 +308,7 @@ public class ImageUtils {
         Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width());
         double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
         Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
-        salva(thinnedImg, bmp, c);
+       // salva(thinnedImg, bmp, c);
 
         MatOfInt4 hough = new MatOfInt4();
 
@@ -297,9 +319,15 @@ public class ImageUtils {
         for (int i = 0; i < hough.rows(); i++) {
 
             double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 10);
-        }
+            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 1);
 
+        }
+        ArrayList<Point> arr=leftHeartLineDetection(thinnedImg,thinnedImg.height(),thinnedImg.width());
+        for (int i = 0; i < arr.size()-1; i++) {
+
+            Imgproc.line(thinnedImg, arr.get(i), arr.get(i+1), new Scalar(0, 255, 0), 2);
+
+        }
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
 
@@ -318,6 +346,72 @@ public class ImageUtils {
 
     }
 
+    public static ArrayList<Point> leftHeartLineDetection(Mat  m, int height, int width){
+
+        Rgb[][] mat = new Rgb[height][width];
+        mat=matToRgbMatrix(m);
+        ArrayList<Point> arr = new ArrayList<Point>();
+        int i=0,j=0;
+        boolean flag=false;
+        //Scelta candidato
+         for(int k=width-5;k>=0;k--){
+            for(int z=0; z<height-1; z++){
+
+             //   System.out.println("Provo indici: "+ z+" "+k);
+                if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
+                    i=k;
+                    j=z;
+
+                    break;
+                }
+            }
+            if(i!=0 && j!=0)
+                break;
+         }
+
+        arr.add(new Point(i,j));
+        mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
+        flag=false;
+        double tAngolo;
+        double coeff;
+        boolean stop=false;
+        //TO DO: MODO PIU' EFFICIENTE?
+        System.out.println("ENTRO NEL WHILE DAL PUNTO i= "+i+" j="+j);
+        while(j>0 && !stop) {
+            flag=false;
+            int k=i-1;
+            for (int z = j - 1; z < j+2; z++) {
+                    System.out.println("Visito "+ k +" "+ z);
+                    if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+                        System.out.println("E' ROSSO!");
+                        if (k - i == 0)
+                            tAngolo = 90;
+                        else {
+                            coeff = (z - j) / (k - i);
+                            tAngolo = Math.toDegrees(Math.atan(coeff));
+                        }
+                            System.out.println("ANGOLO = "+tAngolo);
+                        if (tAngolo >= -45 && tAngolo < 90) {
+                            System.out.println("Angolo accettato");
+                            Point p = new Point(k, z);
+                            arr.add(p);
+                            i = k;
+                            j = z;
+                            flag = true;
+                            break;
+                        }
+                    }
+            }
+            if(!flag)
+                stop=true;
+        }
+
+        System.out.println("ARR SIZE = "+ arr.size());
+
+        return arr;
+
+
+    }
     private static float gaussian(float x, double sigma) {
         return (float) Math.exp(-(x * x) / (2f * sigma * sigma));
     }
@@ -579,7 +673,7 @@ public class ImageUtils {
             for (int j = y1; j < y2 - 1; j++) {
                 if (m[i][j] >= 150.0)
                     cont++;
-                if (cont == 20)
+                if (cont == 3)
                     return true;
             }
         }
