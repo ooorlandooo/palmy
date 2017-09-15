@@ -115,8 +115,8 @@ System.out.println("cropped width"+cropped.getWidth()+" height"+ cropped.getHeig
             cropped =  Bitmap.createScaledBitmap(cropped,cropped.getWidth(),cropped.getWidth(),false);
         } else if( cropped.getWidth() > cropped.getHeight()) {
             cropped =  Bitmap.createScaledBitmap(cropped,cropped.getHeight(),cropped.getHeight(),false);
-        }*/
-        cropped =  Bitmap.createScaledBitmap(cropped,500,500,false);
+       }*/
+        cropped =  Bitmap.createScaledBitmap(cropped,650,650,false);
         System.out.println("cropped after width"+cropped.getWidth()+" height"+ cropped.getHeight());
 
         System.out.println("Fatto crop + resize");

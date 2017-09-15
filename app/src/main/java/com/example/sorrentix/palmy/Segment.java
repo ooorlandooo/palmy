@@ -45,4 +45,12 @@ class Segment {
     public void setY2(double y2) {
         this.y2 = y2;
     }
+
+    public double puntoMedioY() {
+        return (y2 + y1)/2;
+    }
+
+    public double puntoMedioX() {
+        return (x2 + x1)/2;
+    }
 }

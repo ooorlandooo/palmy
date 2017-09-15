@@ -302,6 +302,8 @@ public class ImageUtils {
 
         Segment [] segments = new Segment[hough.rows()];
         double [] slopes = new double[hough.rows()];
+        double [] locY = new double[hough.rows()];
+        double [] locX = new double[hough.rows()];
         for (int i = 0; i < hough.rows(); i++) {
             double[] val = hough.get(i, 0);
             if (val[2]-val[0] == 0)
@@ -311,9 +313,11 @@ public class ImageUtils {
             if (slopes[i]<0)
                 slopes[i] = 360 + slopes[i];
             segments[i] = new Segment(val[0],val[1],val[2],val[3]);
-            System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0])));
+            locY[i] = segments[i].puntoMedioY();
+            locX[i] = segments[i].puntoMedioX();
+            System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0]))+"locY[i]"+locY[i]+"locX[i]"+locX[i]);
         }
-        return kMeanClustering(segments,slopes,bmp,thinnedImg);
+        return kMeanClustering(segments,slopes,locX,locY,bmp,thinnedImg);
 /*
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
@@ -333,15 +337,24 @@ public class ImageUtils {
 */
     }
 
+    private static String features2string(double [] features){
+        return features[0]+"_"+features[1]+"_"+features[2];
+    }
 
-    private static Uri kMeanClustering(Segment[] segments, double [] slopes,Bitmap bmp, Mat thinnedImg){
+
+    private static Uri kMeanClustering(Segment[] segments, double[] slopes,double[] locX, double[] locY, Bitmap bmp, Mat thinnedImg){
         int k = 3;//MAIN LINES
+        int numfeatures = 3;
         int passo = 0;
         boolean sameCentroidFlag = false;
 
-        Map<Double, Segment> map = new HashMap<>();//USED FOR PRINTING
+        Map<String, Segment> map = new HashMap<>();//USED FOR PRINTING
         for (int j = 0; j < slopes.length; j++){
-            map.put(slopes[j],segments[j]);
+            double features [] = new double[numfeatures];
+            features[0] = slopes[j];
+            features[1] = locX[j];
+            features[2] = locY[j];
+            map.put(features2string(features),segments[j]);
         }
 
         //Random generator
@@ -349,77 +362,153 @@ public class ImageUtils {
         int rangeMin = 0, rangeMax = slopes.length-1;
 
         //Select random centroid
-        double centroids [] = new double[k];
-        double prevCentroids [] = new double[k];
-        for (int i = 0; i < k; i++)
-            prevCentroids[i] = centroids[i] = slopes[r.nextInt((rangeMax - rangeMin) + 1) + rangeMin];
+        double centroids [][] = new double[k][numfeatures];
+        double prevCentroids [][] = new double[k][numfeatures];
+        /*for (int i = 0; i < k; i++) {
+            int randIndex = r.nextInt((rangeMax - rangeMin) + 1) + rangeMin;
+            centroids[i][0] = slopes[randIndex];
+            prevCentroids[i][0] = slopes[randIndex];
+        }*/
+        for (int i = 0; i < k; i++) {
+            int randIndex = r.nextInt((rangeMax - rangeMin) + 1) + rangeMin;
+            centroids[i][0] = slopes[randIndex];
+            prevCentroids[i][0] = slopes[randIndex];
+        }
+        centroids[0][0] = 90;
+        centroids[0][1] = thinnedImg.height()/5.0;
+        centroids[0][2] = (thinnedImg.height()*4.0)/5.0;
+        centroids[1][0] = 30;
+        centroids[1][1] = thinnedImg.height()/2.0;
+        centroids[1][2] = thinnedImg.height()/3.0;
+        centroids[2][0] = 25;
+        centroids[2][1] = thinnedImg.height()/2.0;//(thinnedImg.height()*4.0)/5.0;
+        centroids[2][2] = thinnedImg.height()/6.0;
+
+        prevCentroids[0][0] = 90;
+        prevCentroids[0][1] = thinnedImg.height()/5.0;
+        prevCentroids[0][2] = (thinnedImg.height()*4.0)/5.0;
+        prevCentroids[1][0] = 30;
+        prevCentroids[1][1] = thinnedImg.height()/2.0;
+        prevCentroids[1][2] = thinnedImg.height()/3.0;
+        prevCentroids[2][0] = 25;
+        prevCentroids[2][1] = thinnedImg.height()/2.0;//(thinnedImg.height()*4.0)/5.0;
+        prevCentroids[2][2] = thinnedImg.height()/6.0;
+
+        double centroidiIniziali[][] = new double[k][numfeatures];
+        centroidiIniziali[0][1] = thinnedImg.height()/5.0;
+        centroidiIniziali[0][2] = (thinnedImg.height()*4.0)/5.0;
+        centroidiIniziali[1][1] = thinnedImg.height()/2.0;
+        centroidiIniziali[1][2] = thinnedImg.height()/3.0;
+        centroidiIniziali[2][1] = thinnedImg.height()/2.0;//(thinnedImg.height()*4.0)/5.0;
+        centroidiIniziali[2][2] = thinnedImg.height()/6.0;
+
+        System.out.println("ALTEZZA IMG: "+ thinnedImg.height()+"thinnedimg/3: "+(thinnedImg.height()/3.0)+"thinnedimg/2: "+(thinnedImg.height()/2.0));
+        System.out.println("CENTROIDI INIT: centroids[0][0]: "+ centroids[0][0]+"centroids[0][1]: "+ centroids[0][1]+"centroids[0][2]: "+ centroids[0][2]);
+        System.out.println("CENTROIDI INIT: centroids[0][0]: "+ centroids[1][0]+"centroids[0][1]: "+ centroids[1][1]+"centroids[0][2]: "+ centroids[1][2]);
+        System.out.println("CENTROIDI INIT: centroids[0][0]: "+ centroids[2][0]+"centroids[0][1]: "+ centroids[2][1]+"centroids[0][2]: "+ centroids[2][2]);
         //System.out.println("NUMERO RANDOM: "+(r.nextInt((rangeMax - rangeMin) + 1) + rangeMin));
 
-        ArrayList<ArrayList<Double>> clusters = new ArrayList<ArrayList<Double>>();
-        ArrayList<Double> nodeList1 = new ArrayList<Double>();
+        ArrayList<ArrayList<double[]>> clusters = new ArrayList<ArrayList<double[]>>();
+        ArrayList<double[]> nodeList1 = new ArrayList<double[]>();
         clusters.add(nodeList1);
-        ArrayList<Double> nodeList2 = new ArrayList<Double>();
+        ArrayList<double[]> nodeList2 = new ArrayList<double[]>();
         clusters.add(nodeList2);
-        ArrayList<Double> nodeList3 = new ArrayList<Double>();
+        ArrayList<double[]> nodeList3 = new ArrayList<double[]>();
         clusters.add(nodeList3);
 
-        double temp;
+        double temp[];
         int i = 0;
         do {
-            for (i = 0; i < slopes.length; i++)
-                clusters.get(findNearestCentroid(centroids,slopes[i])).add(slopes[i]);
-
-            i = 0;
-            System.out.println("CENTROIDI PRIMA DEL RESET: centroids[0]: "+ centroids[0]+"centroids[1]: "+ centroids[1]+"centroids[2]: "+ centroids[2]);
-            for(int j = 0; j < k; j++) {//RESET CENTROIDS
-                centroids[j] = 0;
-                System.out.println("RESET CENTROIDI centroids["+j+"]: "+ centroids[j]);
+            for (i = 0; i < slopes.length; i++) {
+                double tempFeature [] = new double[numfeatures];
+                tempFeature[0] = slopes[i];
+                tempFeature[1] = locX[i];
+                tempFeature[2] = locY[i];
+                clusters.get(findNearestCentroid(centroids, slopes[i],locX[i], locY[i])).add(tempFeature);
             }
-            for (ArrayList<Double> cluster : clusters) {
+            i = 0;
+/*            System.out.println("CENTROIDI PRIMA DEL RESET: prevCentroids[0][0]: "+ prevCentroids[0][0]+"prevCentroids[0][1]: "+ prevCentroids[0][1]+"prevCentroids[0][2]: "+ prevCentroids[0][2]);
+            System.out.println("CENTROIDI PRIMA DEL RESET: prevCentroids[0][0]: "+ prevCentroids[1][0]+"prevCentroids[0][1]: "+ prevCentroids[1][1]+"prevCentroids[0][2]: "+ prevCentroids[1][2]);
+            System.out.println("CENTROIDI PRIMA DEL RESET: prevCentroids[0][0]: "+ prevCentroids[2][0]+"prevCentroids[0][1]: "+ prevCentroids[2][1]+"prevCentroids[0][2]: "+ prevCentroids[2][2]);
+            System.out.println("CENTROIDI PRIMA DEL RESET: centroids[0][0]: "+ centroids[0][0]+"centroids[0][1]: "+ centroids[0][1]+"centroids[0][2]: "+ centroids[0][2]);
+            System.out.println("CENTROIDI PRIMA DEL RESET: centroids[0][0]: "+ centroids[1][0]+"centroids[0][1]: "+ centroids[1][1]+"centroids[0][2]: "+ centroids[1][2]);
+            System.out.println("CENTROIDI PRIMA DEL RESET: centroids[0][0]: "+ centroids[2][0]+"centroids[0][1]: "+ centroids[2][1]+"centroids[0][2]: "+ centroids[2][2]);
+*/            for(int j = 0; j < k; j++) {//RESET CENTROIDS
+                centroids[j][0] = 0;
+                centroids[j][1] = 0;
+                centroids[j][2] = 0;
+ //               System.out.println("RESET CENTROIDI : prevCentroids["+j+"][0]: "+ prevCentroids[j][0]+"prevCentroids["+j+"][1]: "+ prevCentroids[j][1]+"prevCentroids["+j+"][2]: "+ prevCentroids[j][2]);
+ //               System.out.println("RESET CENTROIDI : centroids["+j+"][0]: "+ centroids[j][0]+"centroids["+j+"][1]: "+ centroids[j][1]+"centroids["+j+"][2]: "+ centroids[j][2]);
+            }
+            for (ArrayList<double[]> cluster : clusters) {
                 for (int t = 0; t < cluster.size(); t++) {//NEW CENTROIDS AS MEAN OF NEW CLUSTERS
                     temp = cluster.remove(t);
-                    centroids[i] += temp;
-                    System.out.println("CALCOLO CENTROIDI - SOMMA centroids["+i+"]: "+ centroids[i]);
-                    System.out.println("cluster.remove("+t+"): "+ temp);
-                }
-                if(cluster.size()!=0)
-                    centroids[i]/=cluster.size();
-                System.out.println("CALCOLO CENTROIDI - DIVISIONE centroids["+i+"]: "+ centroids[i]);
-                System.out.println("CALCOLO CENTROIDI - DIVISIONE cluster.size(): "+ cluster.size());
+                    centroids[i][0] += temp[0];
+                    centroids[i][1] += temp[1];
+                    centroids[i][2] += temp[2];
+/*                    System.out.println("cluster.remove("+t+"): "+ temp[0]+" - "+ temp[1]+" - "+ temp[2]);
+                    System.out.println("CALCOLO CENTROIDI - SOMMA: prevCentroids["+i+"][0]: "+ prevCentroids[i][0]+"prevCentroids["+i+"][1]: "+ prevCentroids[i][1]+"prevCentroids["+i+"][2]: "+ prevCentroids[i][2]);
+                    System.out.println("CALCOLO CENTROIDI - SOMMA: centroids["+i+"][0]: "+ centroids[i][0]+"centroids["+i+"][1]: "+ centroids[i][1]+"centroids["+i+"][2]: "+ centroids[i][2]);
+ */               }
+                if(cluster.size()!=0) {
+                    centroids[i][0] /= cluster.size();
+                    centroids[i][1] /= cluster.size();
+                    centroids[i][2] /= cluster.size();
+/*                    System.out.println("CALCOLO CENTROIDI - DIVISIONE cluster.size(): "+ cluster.size());
+                    System.out.println("CALCOLO CENTROIDI - DIVISIONE: prevCentroids["+i+"][0]: "+ prevCentroids[i][0]+"prevCentroids["+i+"][1]: "+ prevCentroids[i][1]+"prevCentroids["+i+"][2]: "+ prevCentroids[i][2]);
+                    System.out.println("CALCOLO CENTROIDI - DIVISIONE: centroids["+i+"][0]: "+ centroids[i][0]+"centroids["+i+"][1]: "+ centroids[i][1]+"centroids["+i+"][2]: "+ centroids[i][2]);
+*/                }
                 i++;
             }
             sameCentroidFlag = true;
             for (i = 0; i < k; i++){
-                    System.out.println("centroids["+i+"]: "+ centroids[i]+" prevcentroids["+i+"]"+ prevCentroids[i]);
-                    if ((int)centroids[i] != (int)prevCentroids[i]) {
+/*                    System.out.println("centroids["+i+"][0]: "+ centroids[i][0]+" prevcentroids["+i+"][0]"+ prevCentroids[i][0]);
+                    System.out.println("centroids["+i+"][1]: "+ centroids[i][1]+" prevcentroids["+i+"][1]"+ prevCentroids[i][1]);
+                    System.out.println("centroids["+i+"][2]: "+ centroids[i][2]+" prevcentroids["+i+"][2]"+ prevCentroids[i][2]);
+ */                   if ((int)centroids[i][0] != (int)prevCentroids[i][0] || (int)centroids[i][1] != (int)prevCentroids[i][1] || (int)centroids[i][2] != (int)prevCentroids[i][2]) {
                         sameCentroidFlag = false;
-                        prevCentroids[i] = centroids[i];
+                        prevCentroids[i][0] = centroids[i][0];
+                        prevCentroids[i][1] = centroids[i][1];
+                        prevCentroids[i][2] = centroids[i][2];
                     }
             }
             System.out.println("PASSO: "+passo + " FLAG: "+ sameCentroidFlag);
             passo++;
-        }while (!sameCentroidFlag && passo < 100);
+        }while (!sameCentroidFlag && passo < 1000);
 
-        for (i = 0; i < slopes.length; i++)//RECOMPUTE CLUSTERS
-            clusters.get(findNearestCentroid(centroids,slopes[i])).add(slopes[i]);
+
+        for (i = 0; i < slopes.length; i++) {//RECOMPUTE CLUSTERS
+            double tempFeature [] = new double[numfeatures];
+            tempFeature[0] = slopes[i];
+            tempFeature[1] = locX[i];
+            tempFeature[2] = locY[i];
+            clusters.get(findNearestCentroid(centroids, slopes[i],locX[i], locY[i])).add(tempFeature);
+        }
 
         int color = 0;
-        for (ArrayList<Double> cluster : clusters) {
+        for (ArrayList<double[]> cluster : clusters) {
             if (color == 0) {
                 System.out.println("Rosso");
-                for (Double slope : cluster)
-                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(255, 0, 0), 10);
+                for (double[] features : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(features2string(features)).getX1(), map.get(features2string(features)).getY1()), new Point(map.get(features2string(features)).getX2(), map.get(features2string(features)).getY2()), new Scalar(255, 0, 0), 10);
             }else if (color == 1){
                 System.out.println("Verde");
-                for (Double slope : cluster)
-                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 255, 0), 10);
+                for (double[] features : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(features2string(features)).getX1(), map.get(features2string(features)).getY1()), new Point(map.get(features2string(features)).getX2(), map.get(features2string(features)).getY2()), new Scalar(0, 255, 0), 10);
             }else if (color == 2){
                 System.out.println("Blu");
-                for (Double slope : cluster)
-                    Imgproc.line(thinnedImg, new Point(map.get(slope).getX1(), map.get(slope).getY1()), new Point(map.get(slope).getX2(), map.get(slope).getY2()), new Scalar(0, 0, 255), 10);
+                for (double[] features : cluster)
+                    Imgproc.line(thinnedImg, new Point(map.get(features2string(features)).getX1(), map.get(features2string(features)).getY1()), new Point(map.get(features2string(features)).getX2(), map.get(features2string(features)).getY2()), new Scalar(0, 0, 255), 10);
             }
             color++;
         }
+        Imgproc.line(thinnedImg, new Point(centroidiIniziali[0][1],centroidiIniziali[0][2]),new Point(centroidiIniziali[0][1],centroidiIniziali[0][2]),new Scalar(255,0,0),20);
+        Imgproc.line(thinnedImg, new Point(centroidiIniziali[1][1],centroidiIniziali[1][2]),new Point(centroidiIniziali[1][1],centroidiIniziali[1][2]),new Scalar(0,255,0),20);
+        Imgproc.line(thinnedImg, new Point(centroidiIniziali[2][1],centroidiIniziali[2][2]),new Point(centroidiIniziali[2][1],centroidiIniziali[2][2]),new Scalar(0,0,255),20);
+
+        Imgproc.line(thinnedImg, new Point(centroids[0][1],centroids[0][2]),new Point(centroids[0][1],centroids[0][2]),new Scalar(255,0,0),20);
+        Imgproc.line(thinnedImg, new Point(centroids[1][1],centroids[1][2]),new Point(centroids[1][1],centroids[1][2]),new Scalar(0,255,0),20);
+        Imgproc.line(thinnedImg, new Point(centroids[2][1],centroids[2][2]),new Point(centroids[2][1],centroids[2][2]),new Scalar(0,0,255),20);
 
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
@@ -440,11 +529,11 @@ public class ImageUtils {
 
 
 
-    private static int findNearestCentroid(double [] centroids,double slope){
+    private static int findNearestCentroid(double [][] centroids,double slope, double locX, double locY){
         double minVal = Double.MAX_VALUE, val;
         int minIndex=0;
         for (int i = 0; i < centroids.length; i++){
-            val = euclideanDistance1D(centroids[i],slope);
+            val = euclideanDistance3D(centroids[i],slope,locX,locY);
             if(val < minVal){
                 minVal = val;
                 minIndex = i;
@@ -455,6 +544,14 @@ public class ImageUtils {
 
     private static double euclideanDistance1D(double x, double y){
         return Math.abs(x-y);
+    }
+
+    private static double euclideanDistance2D(double[] centroid, double slope, double locY){
+        return Math.sqrt(Math.pow(centroid[0]-slope,2)+Math.pow(centroid[1]-locY,2));
+    }
+
+    private static double euclideanDistance3D(double[] centroid, double slope,double locX, double locY){
+        return Math.sqrt(Math.pow(centroid[0]-slope,2)+Math.pow(centroid[1]-locX,2)+Math.pow(centroid[2]-locY,2));
     }
 
     private static float gaussian(float x, double sigma) {
