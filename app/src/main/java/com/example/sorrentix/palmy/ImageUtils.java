@@ -319,17 +319,46 @@ public class ImageUtils {
         for (int i = 0; i < hough.rows(); i++) {
 
             double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 1);
+            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 4);
 
         }
-        ArrayList<Point> arr=leftHeartLineDetection(thinnedImg,thinnedImg.height(),thinnedImg.width());
-        for (int i = 0; i < arr.size()-1; i++) {
+        Rgb[][] mat = matToRgbMatrix(thinnedImg);
+        Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
+        ArrayList<Point> heartL = heartStruct.m;
 
-            Imgproc.line(thinnedImg, arr.get(i), arr.get(i+1), new Scalar(0, 255, 0), 2);
+        mat=matToRgbMatrix(heartStruct.c);
+        Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
+        ArrayList<Point> headL= headStruct.m;
+
+        mat=matToRgbMatrix(headStruct.c);
+        Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
+        ArrayList<Point> lifeL= lifeStruct.m;
+
+        Mat defImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
+
+        Utils.bitmapToMat(bmp,defImg);
+
+        for (int i = 0; i < heartL.size()-1; i++) {
+
+            Imgproc.line(defImg, heartL.get(i), heartL.get(i+1), new Scalar(0, 255, 0), 10);
 
         }
+
+        for (int i = 0; i < headL.size()-1; i++) {
+
+            Imgproc.line(defImg, headL.get(i), headL.get(i+1), new Scalar(0, 0, 255), 10);
+
+        }
+
+        for (int i = 0; i < lifeL.size()-1; i++) {
+
+            Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
+
+        }
+
+
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
-        Utils.matToBitmap(thinnedImg,bmp);
+        Utils.matToBitmap(defImg,bmp);
 
         imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
         FileOutputStream outputStream = null;
@@ -346,16 +375,15 @@ public class ImageUtils {
 
     }
 
-    public static ArrayList<Point> leftHeartLineDetection(Mat  m, int height, int width){
+    public static Pair<ArrayList<Point>,Mat> leftHeartLineDetection(Rgb[][] mat,Mat thinnedImg, int height, int width){
 
-        Rgb[][] mat = new Rgb[height][width];
-        mat=matToRgbMatrix(m);
+
         ArrayList<Point> arr = new ArrayList<Point>();
         int i=0,j=0;
         boolean flag=false;
         //Scelta candidato
-         for(int k=width-5;k>=0;k--){
-            for(int z=0; z<height-1; z++){
+         for(int k=width-10;k>=0;k--){
+            for(int z=0; z<height/2; z++){
 
              //   System.out.println("Provo indici: "+ z+" "+k);
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
@@ -364,6 +392,11 @@ public class ImageUtils {
 
                     break;
                 }
+                else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
+                    mat[k][z].setBlue(0);
+                    mat[k][z].setRed(0);
+                    mat[k][z].setGreen(0);
+                }
             }
             if(i!=0 && j!=0)
                 break;
@@ -371,28 +404,30 @@ public class ImageUtils {
 
         arr.add(new Point(i,j));
         mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
+        Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
         flag=false;
         double tAngolo;
         double coeff;
         boolean stop=false;
         //TO DO: MODO PIU' EFFICIENTE?
-        System.out.println("ENTRO NEL WHILE DAL PUNTO i= "+i+" j="+j);
         while(j>0 && !stop) {
             flag=false;
             int k=i-1;
-            for (int z = j - 1; z < j+2; z++) {
-                    System.out.println("Visito "+ k +" "+ z);
+            for (int z = j - 5; z < j+2; z++) {
                     if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
-                        System.out.println("E' ROSSO!");
+
+                        mat[k][z].setBlue(0);
+                        mat[k][z].setRed(0);
+                        mat[k][z].setGreen(0);
+
+                        Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
                         if (k - i == 0)
                             tAngolo = 90;
                         else {
                             coeff = (z - j) / (k - i);
                             tAngolo = Math.toDegrees(Math.atan(coeff));
                         }
-                            System.out.println("ANGOLO = "+tAngolo);
-                        if (tAngolo >= -45 && tAngolo < 90) {
-                            System.out.println("Angolo accettato");
+                        if (tAngolo >= -45 && tAngolo <= 90) {
                             Point p = new Point(k, z);
                             arr.add(p);
                             i = k;
@@ -406,9 +441,152 @@ public class ImageUtils {
                 stop=true;
         }
 
-        System.out.println("ARR SIZE = "+ arr.size());
+        Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
+        return p;
 
-        return arr;
+
+    }
+
+    public static Pair<ArrayList<Point>,Mat> leftHeadLineDetection(Rgb[][] mat,Mat thinnedImg, int height, int width){
+
+
+        ArrayList<Point> arr = new ArrayList<Point>();
+        int i=0,j=0;
+        boolean flag=false;
+        //Scelta candidato
+        for(int k=width-50;k>=0;k--){
+            for(int z=0; z<height/2; z++){
+
+                //   System.out.println("Provo indici: "+ z+" "+k);
+                if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
+                    i=k;
+                    j=z;
+
+                    break;
+                }
+                else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
+                    mat[k][z].setBlue(0);
+                    mat[k][z].setRed(0);
+                    mat[k][z].setGreen(0);
+                }
+            }
+            if(i!=0 && j!=0)
+                break;
+        }
+
+        arr.add(new Point(i,j));
+        mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
+        Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
+        flag=false;
+        double tAngolo;
+        double coeff;
+        boolean stop=false;
+        //TO DO: MODO PIU' EFFICIENTE?
+        while(j>0 && !stop) {
+            flag=false;
+            int k=i-1;
+            for (int z = j - 5; z < j+2; z++) {
+                if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+
+                    mat[k][z].setBlue(0);
+                    mat[k][z].setRed(0);
+                    mat[k][z].setGreen(0);
+
+                    Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
+                    if (k - i == 0)
+                        tAngolo = 90;
+                    else {
+                        coeff = (z - j) / (k - i);
+                        tAngolo = Math.toDegrees(Math.atan(coeff));
+                    }
+                    if (tAngolo >= -45 && tAngolo <= 90) {
+                        Point p = new Point(k, z);
+                        arr.add(p);
+                        i = k;
+                        j = z;
+                        flag = true;
+                        break;
+                    }
+                }
+            }
+            if(!flag)
+                stop=true;
+        }
+
+        Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
+        return p;
+
+
+    }
+
+    public static Pair<ArrayList<Point>,Mat> leftLifeLineDetection(Rgb[][] mat,Mat thinnedImg, int height, int width){
+
+
+        ArrayList<Point> arr = new ArrayList<Point>();
+        int i=0,j=0;
+        boolean flag=false;
+        //Scelta candidato
+        for(int k=width/2;k>=0;k--){
+            for(int z=height-1; z>=0.60 *height; z--){
+
+                //   System.out.println("Provo indici: "+ z+" "+k);
+                if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
+                    i=k;
+                    j=z;
+
+                    break;
+                }
+                else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
+                    mat[k][z].setBlue(0);
+                    mat[k][z].setRed(0);
+                    mat[k][z].setGreen(0);
+                }
+            }
+            if(i!=0 && j!=0)
+                break;
+        }
+
+        arr.add(new Point(i,j));
+        mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
+        Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
+        flag=false;
+        double tAngolo;
+        double coeff;
+        boolean stop=false;
+        //TO DO: MODO PIU' EFFICIENTE?
+        while(j>0 && !stop) {
+            flag=false;
+            int k=i-1;
+            for (int z = j - 10; z < j+2; z++) {
+                if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+
+                    mat[k][z].setBlue(0);
+                    mat[k][z].setRed(0);
+                    mat[k][z].setGreen(0);
+
+                    Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
+                    if (k - i == 0)
+                        tAngolo = 90;
+                    else {
+                        coeff = (z - j) / (k - i);
+                        tAngolo = Math.toDegrees(Math.atan(coeff));
+                    }
+                    if (tAngolo >= -45 && tAngolo <= 90) {
+                        Point p = new Point(k, z);
+                        arr.add(p);
+                        i = k;
+                        j = z;
+                        flag = true;
+                        break;
+                    }
+                }
+            }
+            if(!flag)
+                stop=true;
+        }
+
+        Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
+        return p;
 
 
     }
