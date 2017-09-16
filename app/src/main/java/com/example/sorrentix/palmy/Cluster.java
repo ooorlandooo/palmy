@@ -20,7 +20,7 @@ public class Cluster {
     public double initDistance(Cluster c){
         double euclideanDistance = Math.sqrt(Math.pow(this.segments[0].puntoMedioX()-c.segments[0].puntoMedioX(),2)+Math.pow(this.segments[0].puntoMedioY()-c.segments[0].puntoMedioY(),2));
         double slopeDistance = Math.sqrt(Math.pow(this.segments[0].getSlope()-c.segments[0].getSlope(),2));
-        return euclideanDistance + slopeDistance;
+        return euclideanDistance + (slopeDistance/4.0);
     }
 
     public void addClusterSegments( Cluster c){

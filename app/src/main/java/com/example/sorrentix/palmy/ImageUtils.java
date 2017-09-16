@@ -396,6 +396,7 @@ public class ImageUtils {
             clusters[firstNearestClusterIndex].addClusterSegments(clusters[secondNearestClusterIndex]);
 
             //faccio l'update della matrice di prossimita
+            boolean penalizedToBigClusters = false;
             for (int i = 0; i < segments.length; i++) {
 
                 if (i !=firstNearestClusterIndex) {
@@ -406,11 +407,12 @@ public class ImageUtils {
                     proximityMatrix [i][secondNearestClusterIndex] = 0;
                 }
                 //controllo per evitare che un cluster diventi troppo grande a discapito degli altri
-                if (clusters[i].clusterElements > segments.length/clustersNumberGoal){
+                if (!penalizedToBigClusters && clusters[i].clusterElements > segments.length/(clustersNumberGoal*2)){
                     for(int j=0; j< segments.length; j++){
-                        proximityMatrix[i][j] = 0;
-                        proximityMatrix[j][i] = 0;
+                        proximityMatrix[i][j] = proximityMatrix[i][j]*1.5;
+                        proximityMatrix[j][i] = proximityMatrix[j][i]*1.5;
                     }
+                    penalizedToBigClusters = true;
                 }
 
             }
