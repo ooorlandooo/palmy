@@ -247,7 +247,7 @@ public class ImageUtils {
         MatOfDouble mean = new MatOfDouble(),
                 stdDev = new MatOfDouble();
         Core.meanStdDev(filteredImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
+        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0])*5;
         double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
         System.out.println("DIM CROPPED: "+filteredImg.width()+"*"+filteredImg.height());
         double [][]matrixCanned = matToMatrix(filteredImg);
@@ -315,9 +315,13 @@ public class ImageUtils {
             segments[i] = new Segment(val[0],val[1],val[2],val[3]);
             locY[i] = segments[i].puntoMedioY();
             locX[i] = segments[i].puntoMedioX();
-            System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0]))+"locY[i]"+locY[i]+"locX[i]"+locX[i]);
+            segments[i].setSlope(slopes[i]);
+            //System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0]))+"locY[i]"+locY[i]+"locX[i]"+locX[i]);
         }
-        return kMeanClustering(segments,slopes,locX,locY,bmp,thinnedImg);
+
+        return singleLinkClustering(segments,slopes,locX,locY,bmp,thinnedImg);
+
+        //return kMeanClustering(segments,slopes,locX,locY,bmp,thinnedImg);
 /*
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
@@ -339,6 +343,116 @@ public class ImageUtils {
 
     private static String features2string(double [] features){
         return features[0]+"_"+features[1]+"_"+features[2];
+    }
+
+    private static Uri singleLinkClustering(Segment[] segments, double[] slopes,double[] locX, double[] locY, Bitmap bmp, Mat thinnedImg) {
+        int clustersNumberGoal = 3;
+        int actualClustersNumber = segments.length;
+        Cluster [] clusters = new Cluster[segments.length];
+        double [][] proximityMatrix = new double[segments.length][segments.length];
+
+        System.out.println("segments number:"+segments.length);
+
+        for (int i = 0; i < segments.length; i++) {
+            clusters[i] = new Cluster(segments[i],segments.length,i);
+        }
+        for (int i = 0; i < segments.length; i++) {
+            for (int j = 0; j <= i; j++) {
+                if (i==j){
+                    proximityMatrix[i][j] = 0;
+                } else {
+                    proximityMatrix[i][j] = clusters[i].initDistance(clusters[j]);
+                    proximityMatrix[j][i] = proximityMatrix[i][j];
+                }
+            }
+        }
+
+
+        while(clustersNumberGoal < actualClustersNumber){
+            int firstNearestClusterIndex = -1, secondNearestClusterIndex = -1;
+            double currentLowerValue = thinnedImg.height()*thinnedImg.height();
+
+            //cerco i due cluster piu vicini
+            for (int i = 0; i < segments.length; i++) {
+                for (int j = 0; j <= i; j++) {
+                   if (proximityMatrix[i][j] > 0){
+                       if      (currentLowerValue > proximityMatrix[i][j] ||
+                               (currentLowerValue == proximityMatrix[i][j] && clusters[firstNearestClusterIndex].clusterElements + clusters[secondNearestClusterIndex].clusterElements>(clusters[i].clusterElements + clusters[j].clusterElements))){
+                           firstNearestClusterIndex = i;
+                           secondNearestClusterIndex = j;
+                           currentLowerValue = proximityMatrix[i][j];
+                       }
+                   }
+                }
+            }
+/*
+            for (int i = 0; i < segments.length; i++) {
+                for (int j = 0; j < segments.length; j++) {
+                    System.out.print("["+i+"]["+j+"]:"+proximityMatrix[i][j]+"  ");
+                }
+                System.out.println();
+            }*/
+            //faccio il merge dei cluster prescelti
+            clusters[firstNearestClusterIndex].addClusterSegments(clusters[secondNearestClusterIndex]);
+
+            //faccio l'update della matrice di prossimita
+            for (int i = 0; i < segments.length; i++) {
+
+                if (i !=firstNearestClusterIndex) {
+                    proximityMatrix[firstNearestClusterIndex][i] = Math.min(proximityMatrix[firstNearestClusterIndex][i],proximityMatrix[secondNearestClusterIndex][i]);
+                    proximityMatrix[i][firstNearestClusterIndex] = proximityMatrix[firstNearestClusterIndex][i];
+
+                    proximityMatrix[secondNearestClusterIndex][i]  = 0;
+                    proximityMatrix [i][secondNearestClusterIndex] = 0;
+                }
+                //controllo per evitare che un cluster diventi troppo grande a discapito degli altri
+                if (clusters[i].clusterElements > segments.length/clustersNumberGoal){
+                    for(int j=0; j< segments.length; j++){
+                        proximityMatrix[i][j] = 0;
+                        proximityMatrix[j][i] = 0;
+                    }
+                }
+
+            }
+            actualClustersNumber--;
+
+        }
+
+        int color = 0;
+        for (Cluster cluster : clusters) {
+            System.out.println("cluster N"+color+" size:"+ cluster.clusterElements);
+            if(cluster.clusterElements > 0) {
+                for (int i = 0; i < cluster.clusterElements; i++) {
+                    if (color == 0) {
+                        Imgproc.line(thinnedImg, new Point(cluster.segments[i].getX1(), cluster.segments[i].getY1()), new Point(cluster.segments[i].getX2(), cluster.segments[i].getY2()), new Scalar(255, 0, 0), 10);
+                    }
+                    if (color == 1) {
+                        Imgproc.line(thinnedImg, new Point(cluster.segments[i].getX1(), cluster.segments[i].getY1()), new Point(cluster.segments[i].getX2(), cluster.segments[i].getY2()), new Scalar(0, 255, 0), 10);
+                    }
+                    if (color == 2) {
+                        Imgproc.line(thinnedImg, new Point(cluster.segments[i].getX1(), cluster.segments[i].getY1()), new Point(cluster.segments[i].getX2(), cluster.segments[i].getY2()), new Scalar(0, 0, 255), 10);
+                    }
+                }
+
+                color++;
+            }
+        }
+
+        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+        Utils.matToBitmap(thinnedImg,bmp);
+
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return fileHandler.getUriFromFile(imageFile);
     }
 
 
