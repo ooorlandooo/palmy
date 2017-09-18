@@ -300,24 +300,26 @@ public class ImageUtils {
         //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
-        Segment [] segments = new Segment[hough.rows()];
-        double [] slopes = new double[hough.rows()];
-        double [] locY = new double[hough.rows()];
-        double [] locX = new double[hough.rows()];
+        ArrayList<Line> lines = new ArrayList<>(hough.rows());
+        double slope, locX, locY;
+        Segment segment;
         for (int i = 0; i < hough.rows(); i++) {
             double[] val = hough.get(i, 0);
             if (val[2]-val[0] == 0)
-                slopes[i]=90;
+                slope=90;
             else
-                slopes[i] = Math.toDegrees(Math.atan((val[3]-val[1])/(val[2]-val[0])));
-            if (slopes[i]<0)
-                slopes[i] = 360 + slopes[i];
-            segments[i] = new Segment(val[0],val[1],val[2],val[3]);
-            locY[i] = segments[i].puntoMedioY();
-            locX[i] = segments[i].puntoMedioX();
-            System.out.println("slopes[i]: "+slopes[i]+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0]))+"locY[i]"+locY[i]+"locX[i]"+locX[i]);
+                slope = Math.toDegrees(Math.atan((val[3]-val[1])/(val[2]-val[0])));
+            if (slope<0)
+                slope = 360 + slope;
+            segment = new Segment(val[0],val[1],val[2],val[3]);
+            locY = segment.puntoMedioY();
+            locX = segment.puntoMedioX();
+            lines.add(new Line(segment,slope,locX,locY));
+            System.out.println("slopes[i]: "+slope+"  p1.x:"+val[0]+"  p1.y:"+val[1]+"  p2.x:"+val[2]+"  p2.y:"+val[3]+" atan:"+Math.atan((val[3]-val[1])/(val[2]-val[0]))+"locY[i]"+locY+"locX[i]"+locX);
         }
-        return kMeanClustering(segments,slopes,locX,locY,bmp,thinnedImg);
+
+        return manualClustering(lines,bmp,thinnedImg);
+        //        return kMeanClustering(segments,slopes,locX,locY,bmp,thinnedImg);
 /*
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
         Utils.matToBitmap(thinnedImg,bmp);
@@ -336,6 +338,99 @@ public class ImageUtils {
         return fileHandler.getUriFromFile(imageFile);
 */
     }
+
+    private static Uri manualClustering(ArrayList<Line> lines, Bitmap bmp, Mat thinnedImg) {
+        boolean redo = false;
+        int passi = 0;
+        Line prescelto,slopest;
+        ArrayList<Line> closers = new ArrayList<>();
+        ArrayList<Line> heartline = new ArrayList<>();
+        Line tempprescelto;
+        ArrayList<Line> templine = new ArrayList<>();;
+        for (Line line : lines) {
+            tempprescelto = new Line(line.getSegment(),line.getSlope(),line.getLocX(),line.getLocY());
+            templine.add(tempprescelto);
+        }
+        do {
+            prescelto = findNeo(templine,thinnedImg.height(),0);
+            tempprescelto = prescelto;
+            heartline.add(prescelto);
+            while (passi < lines.size()){
+                closers = findTopTenCloser(lines,prescelto);
+                slopest = findNearestSlope(prescelto,closers);
+                heartline.add(slopest);
+                lines.remove(prescelto);
+                prescelto = slopest;
+                passi++;
+            }
+            if (heartline.size() < 10) {
+                redo = true;
+                templine.remove(tempprescelto);
+                heartline.clear();
+                //closers.clear();
+            }else
+                redo = false;
+        }while (redo);
+
+        for (Line line:heartline) {
+            Imgproc.line(thinnedImg, new Point(line.getSegment().getX1(), line.getSegment().getY1()), new Point(line.getSegment().getX2(), line.getSegment().getY2()), new Scalar(0,255, 0), 10);
+        }
+
+//------------------SALVATAGGIO FILE----------------------------------
+        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
+        Utils.matToBitmap(thinnedImg,bmp);
+
+        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return fileHandler.getUriFromFile(imageFile);
+    }
+
+    private static Line findNearestSlope(Line prescelto, ArrayList<Line> closers) {
+        Line slopest = closers.get(0);
+        double minVal = Double.MAX_VALUE, val;
+        for (Line line : closers) {
+            val = euclideanDistance1D(prescelto.getSlope(),line.getSlope());
+            if (val < minVal && line.getSlope()>-45 && line.getSlope() < 80){
+                minVal = val;
+                slopest = line;
+            }
+        }
+        return slopest;
+    }
+
+    private static ArrayList<Line> findTopTenCloser(ArrayList<Line> lines, Line prescelto) {
+        ArrayList<Line> closers = new ArrayList<>();
+        int i = 0;
+        while(i < lines.size() || i < 10){
+            closers.add(findNeo(lines,prescelto.getLocX(),prescelto.getLocY()));
+            i++;
+        }
+        return closers;
+    }
+
+    private static Line findNeo(ArrayList<Line> lines,double x, double y) {
+        double vertex [] = new double []{x,y};
+        Line prescelto = lines.get(0);
+        double minVal = Double.MAX_VALUE, val;
+        for (Line line : lines) {
+            val = euclideanDistance2D(vertex,line.getLocX(),line.getLocY());
+            if (val < minVal){
+                minVal = val;
+                prescelto = line;
+            }
+        }
+        return prescelto;
+    }
+
 
     private static String features2string(double [] features){
         return features[0]+"_"+features[1]+"_"+features[2];
