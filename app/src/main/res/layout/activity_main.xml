@@ -49,7 +49,7 @@
             android:id="@+id/button_capture"
             android:text="Scatta"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="40dp"
             android:layout_gravity="bottom"
             android:onClick="takeScreenShot"
             android:background="#444444"
