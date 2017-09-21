@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -24,8 +25,13 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Random;
+
+import static org.opencv.imgproc.Imgproc.CC_STAT_AREA;
 
 /**
  * Created by ALESSANDROSERRAPICA on 25/07/2017.
@@ -278,7 +284,7 @@ public class ImageUtils {
             matrixCannedImg = cannyEdgeDetector(matrixCanned, filteredImg.width(), filteredImg.height(), highThreshold, lowThreshold);
             //salva(convertMatrixToMat(matrixCannedImg, filteredImg.width(), filteredImg.height()), bmp, c);
 
-            p = enlarging(matrixCannedImg, filteredImg.height(), filteredImg.width());
+            p = enlarging(matrixCannedImg, filteredImg.height(), filteredImg.width(),20);
             //salva(convertMatrixToMat(p.m,filteredImg.width(), filteredImg.height()), bmp, c);
 
 
@@ -302,26 +308,30 @@ public class ImageUtils {
             System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
         }while(cont<=20 || cont >=27);
 
-        matrixCannedImg = pointIsolation(matrixCannedImg,filteredImg.height(),filteredImg.width());
-        salva(convertMatrixToMat(matrixCannedImg,filteredImg.width(),  filteredImg.height()), bmp, c);
 
-        Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width());
-        double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
+        salva(convertMatrixToMat(matrixCannedImg,filteredImg.width(),  filteredImg.height()), bmp, c);
+        matrixCannedImg = pointIsolation(matrixCannedImg,filteredImg.height(),filteredImg.width());
+
+       Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width(),7);
+       double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
+
+        thinned = contoursCleaning(thinned,filteredImg.height(),filteredImg.width());
         Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
-       // salva(thinnedImg, bmp, c);
+        salva(thinnedImg, bmp, c);
 
         MatOfInt4 hough = new MatOfInt4();
 
-        Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 20);
+        Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 40);
         //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
 
         for (int i = 0; i < hough.rows(); i++) {
 
             double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 4);
+            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 2);
 
         }
+        salva(thinnedImg, bmp, c);
         Rgb[][] mat = matToRgbMatrix(thinnedImg);
         Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
         ArrayList<Point> heartL = heartStruct.m;
@@ -355,6 +365,7 @@ public class ImageUtils {
             Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
 
         }
+
 
 
         bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
@@ -411,23 +422,25 @@ public class ImageUtils {
         boolean stop=false;
         //TO DO: MODO PIU' EFFICIENTE?
         while(j>0 && !stop) {
-            flag=false;
-            int k=i-1;
-            for (int z = j - 5; z < j+2; z++) {
-                    if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+            flag = false;
+            for (int k = i - 5; k < i + 2; k++) {
+                for (int z = j - 5; z < j + 2; z++) {
+                    if (i >= 1 && j >= 5 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
 
                         mat[k][z].setBlue(0);
                         mat[k][z].setRed(0);
                         mat[k][z].setGreen(0);
 
-                        Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
+                        Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
                         if (k - i == 0)
                             tAngolo = 90;
                         else {
                             coeff = (z - j) / (k - i);
                             tAngolo = Math.toDegrees(Math.atan(coeff));
                         }
-                        if (tAngolo >= -45 && tAngolo <= 90) {
+                        if (tAngolo == 0)
+                            System.out.println("HO TROVATO UN ANGOLO A 0!!!");
+                        if (tAngolo >= -45 && tAngolo <= 90  ) {
                             Point p = new Point(k, z);
                             arr.add(p);
                             i = k;
@@ -436,11 +449,13 @@ public class ImageUtils {
                             break;
                         }
                     }
+                }
+               if(flag==true)
+                   break;
             }
-            if(!flag)
-                stop=true;
+            if (!flag)
+                stop = true;
         }
-
         Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
         return p;
 
@@ -454,14 +469,13 @@ public class ImageUtils {
         int i=0,j=0;
         boolean flag=false;
         //Scelta candidato
-        for(int k=width-50;k>=0;k--){
-            for(int z=0; z<height/2; z++){
+        for(int k=0;k<width-1;k++){
+            for(int z=0; z<0.25*height; z++){
 
                 //   System.out.println("Provo indici: "+ z+" "+k);
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
                     j=z;
-
                     break;
                 }
                 else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
@@ -482,37 +496,39 @@ public class ImageUtils {
         double coeff;
         boolean stop=false;
         //TO DO: MODO PIU' EFFICIENTE?
-        while(j>0 && !stop) {
+        while(i<width && !stop) {
             flag=false;
-            int k=i-1;
-            for (int z = j - 5; z < j+2; z++) {
-                if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+            for (int k=i+1; k<=i+5; k++) {
+                for (int z = j + 5; z > j - 2; z--) {
+                    System.out.println("Analizzo nuovo punto " + (int) mat[k][z].getRed() + " " + (int) mat[k][z].getGreen() + " " + (int) mat[k][z].getBlue());
+                    if (i < width-10 && j >= 5 && (((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() > 0 && (int) mat[k][z].getBlue() > 0) || ((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0))) {
 
-                    mat[k][z].setBlue(0);
-                    mat[k][z].setRed(0);
-                    mat[k][z].setGreen(0);
-
-                    Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
-                    if (k - i == 0)
-                        tAngolo = 90;
-                    else {
-                        coeff = (z - j) / (k - i);
-                        tAngolo = Math.toDegrees(Math.atan(coeff));
-                    }
-                    if (tAngolo >= -45 && tAngolo <= 90) {
-                        Point p = new Point(k, z);
-                        arr.add(p);
-                        i = k;
-                        j = z;
-                        flag = true;
-                        break;
+                       Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
+                        if (i - k == 0)
+                            tAngolo = 90;
+                        else {
+                            coeff = (j - z) / (i - k);
+                            tAngolo = Math.toDegrees(Math.atan(coeff));
+                        }
+                        System.out.println("Angolo" + tAngolo);
+                        if (tAngolo >= -45) {
+                            System.out.println("ACCETTATO");
+                            Point p = new Point(k, z);
+                            arr.add(p);
+                            i = k;
+                            j = z;
+                            flag = true;
+                            break;
+                        }
                     }
                 }
+                if(flag)
+                    break;
             }
             if(!flag)
                 stop=true;
         }
-
+        System.out.println("STOP="+stop);
         Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
         return p;
 
@@ -526,8 +542,8 @@ public class ImageUtils {
         int i=0,j=0;
         boolean flag=false;
         //Scelta candidato
-        for(int k=width/2;k>=0;k--){
-            for(int z=height-1; z>=0.60 *height; z--){
+        for(int k=(int)(0.6*width);k>=0;k--){
+            for(int z=height-1; z>=(int)(0.6*height); z--){
 
                 //   System.out.println("Provo indici: "+ z+" "+k);
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
@@ -558,7 +574,7 @@ public class ImageUtils {
             flag=false;
             int k=i-1;
             for (int z = j - 10; z < j+2; z++) {
-                if (i>=1 && j>=1 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+                if (i>=1 && j>=10 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
 
                     mat[k][z].setBlue(0);
                     mat[k][z].setRed(0);
@@ -592,6 +608,14 @@ public class ImageUtils {
     }
     private static float gaussian(float x, double sigma) {
         return (float) Math.exp(-(x * x) / (2f * sigma * sigma));
+    }
+
+    private static double getLineLength(ArrayList<Point> arr){
+        double cont =0;
+        for(int i=0; i<arr.size()-1; i++){
+            cont = cont + Math.sqrt((arr.get(i).x-arr.get(i+1).x)+(arr.get(i).y-arr.get(i+1).y));
+        }
+        return cont;
     }
 
     private static double hypot(double x, double y) {
@@ -810,6 +834,18 @@ public class ImageUtils {
         }
     }
 
+    public static double[][] contoursCleaning(double[][]m , int height, int width){
+        for (int i = 0; i <= height - 1; i++) {
+            for (int j = 0; j <= width - 1; j++) {
+
+                if (i == 0 || j == 0 || i == height - 1 || j == width - 1)
+                    m[i][j] = 0;
+
+            }
+        }
+        return m;
+    }
+
     public static double[][] pointIsolation(double [][] m, int height, int width){
 
         //Indici per identificare le aree da controllare
@@ -819,10 +855,13 @@ public class ImageUtils {
         int y2=0;
 
 
-        for (int i = 1; i < height - 1; i++) {
-            for (int j = 1; j < width - 1; j++) {
+        for (int i = 0; i <= height - 1; i++) {
+            for (int j = 0; j <= width - 1; j++) {
 
-                if(m[i][j]>=150.0) {
+                if(i==0 || j==0 || i==height-1 || j == width-1)
+                    m[i][j]=0;
+
+                else if(m[i][j]>=150.0) {
                     if(i-20 < 0)
                         x1=0;
                     else x1=i-20;
@@ -851,14 +890,14 @@ public class ImageUtils {
             for (int j = y1; j < y2 - 1; j++) {
                 if (m[i][j] >= 150.0)
                     cont++;
-                if (cont == 3)
+                if (cont == 20)
                     return true;
             }
         }
         return false;
     }
 
-    public static Pair enlarging(double[][] cannedImage,int height, int width){
+    public static Pair enlarging(double[][] cannedImage, int height, int width,int kernel){
 
         double[][] result = new double[height][width];
         for (int i = 1; i < height - 1; i++) {
@@ -876,25 +915,25 @@ public class ImageUtils {
                     Point p1, p2;
                     p1 = new Point();
                     p2 = new Point();
-                    if (i - 20 < 0) {
+                    if (i - kernel < 0) {
                         p1.x = 1;
                     } else {
-                        p1.x = i - 20;
+                        p1.x = i - kernel;
                     }
-                    if (i + 20 > height) {
+                    if (i + kernel > height) {
                         p2.x = height-2;
                     } else {
-                        p2.x = i + 20;
+                        p2.x = i + kernel;
                     }
-                    if (j - 20 < 0) {
+                    if (j - kernel < 0) {
                         p1.y = 1;
                     } else {
-                        p1.y = j - 20;
+                        p1.y = j - kernel;
                     }
-                    if (j + 20 > width-1) {
+                    if (j + kernel > width-1) {
                         p2.y = width-2;
                     } else {
-                        p2.y = j + 20;
+                        p2.y = j + kernel;
                     }
                     whiteRectangle(result, p1, p2);
                     cont+=(p2.x-p1.x)*(p2.y-p1.y);
@@ -933,6 +972,212 @@ public class ImageUtils {
 
         MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
 
+    }
+
+    public static void newTec(Bitmap bmp, Context c){
+
+        Bitmap bmp2 = Bitmap.createBitmap(bmp);
+
+        Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3);
+        Mat filteredImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat whiteImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1,new Scalar(255));
+        Mat negative =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat topHatted =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat topHattedEqualized =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat binary =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat labeled =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
+        Mat finalImg =  new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3);
+
+        Utils.bitmapToMat(bmp,croppedImg);
+
+        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_RGBA2GRAY);
+
+//PROCESSING PHASE
+        //STEP 1 todo check equalize method
+        Imgproc.equalizeHist(croppedImg,croppedImg);
+        //matriciDaSalvare.add(croppedImg);
+        Utils.matToBitmap(croppedImg,bmp);
+        saveImageToExternalStorage(bmp);
+        //STEP 2 todo check filter type (suggested gausssian 5x5 + median 3x3)
+        //Imgproc.bilateralFilter(croppedImg,filteredImg,5,10,3);
+        Imgproc.blur(croppedImg,filteredImg,new Size(15,15));
+        Imgproc.medianBlur(filteredImg,filteredImg,11);
+        Utils.matToBitmap(filteredImg,bmp);
+        saveImageToExternalStorage(bmp);
+        //STEP 3
+        Core.subtract(whiteImg,filteredImg,negative);
+        Utils.matToBitmap(negative,bmp);
+        saveImageToExternalStorage(bmp);
+//EXTRACTION PHASE
+        //STEP 1
+        //disk-shaped structuring element with 2 point radius (todo check whether it's right or not)
+        Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(15,15), new Point(-1,-1));
+        //Apply the specified morphology operation
+        Imgproc.morphologyEx( negative, topHatted, Imgproc.MORPH_TOPHAT, element );// 5 = top hat
+        Utils.matToBitmap(topHatted,bmp);
+        saveImageToExternalStorage(bmp);
+        //STEP 2
+        Imgproc.equalizeHist(topHatted,topHattedEqualized);
+        //image.convertTo( new_image , -1, alpha, beta );
+        Utils.matToBitmap(topHattedEqualized,bmp);
+        saveImageToExternalStorage(bmp);
+        //STEP 3
+        Imgproc.threshold(topHattedEqualized,binary, 150,255, Imgproc.THRESH_BINARY);
+        Utils.matToBitmap(binary,bmp);
+        saveImageToExternalStorage(bmp);
+        //STEP 4
+        //noise removal with component connected labels
+        Mat stats =  new Mat();
+        Mat centroids =  new Mat();
+        Imgproc.connectedComponentsWithStats(binary,labeled,stats,centroids);
+
+/*        System.out.println("MATRICE LABELED");
+        for (int i = 0; i < labeled.rows(); i++){
+            for (int j = 0; j < labeled.cols(); j++){
+                System.out.println(" "+labeled.get(i,j)[0]+" ");
+            }
+        }
+        System.out.println("MATRICE STATS");
+        for (int i = 0; i < stats.rows(); i++){
+                System.out.print(" ["+i+"]["+CC_STAT_AREA +"]="+stats.get(i,CC_STAT_AREA)[0]+" ");
+            System.out.println("--------------------------------------");
+        }
+*/
+        //Convert Mat to matrix
+        int [] statArray = new int[stats.rows()];
+        for (int i = 0; i < stats.rows(); i++){
+            statArray[i] = (int)stats.get(i,CC_STAT_AREA)[0];
+        }
+
+        for (int i = 0; i < labeled.rows(); i++){
+            for (int j = 0; j < labeled.cols(); j++){
+                if (statArray[(int)labeled.get(i,j)[0]] < 300)
+                    binary.put(i,j,0);
+            }
+        }
+        Utils.matToBitmap(binary,bmp);
+        saveImageToExternalStorage(bmp);
+
+        double[][] binaryMatrix = matToMatrix(binary);
+        Pair<double[][],Object> p = enlarging(binaryMatrix,bmp.getHeight(),bmp.getWidth(),5);
+        binary = convertMatrixToMat(p.m,bmp.getHeight(),bmp.getWidth());
+        Utils.matToBitmap(binary,bmp);
+        saveImageToExternalStorage(bmp);
+
+        binaryMatrix = thinning(p.m,bmp.getHeight(),bmp.getWidth());
+        binaryMatrix = contoursCleaning(binaryMatrix,bmp.getHeight(),bmp.getWidth());
+        binary = convertMatrixToMat(binaryMatrix,bmp.getHeight(),bmp.getWidth());
+
+        Imgproc.connectedComponentsWithStats(binary,labeled,stats,centroids);
+
+/*        System.out.println("MATRICE LABELED");
+        for (int i = 0; i < labeled.rows(); i++){
+            for (int j = 0; j < labeled.cols(); j++){
+                System.out.println(" "+labeled.get(i,j)[0]+" ");
+            }
+        }
+        System.out.println("MATRICE STATS");
+        for (int i = 0; i < stats.rows(); i++){
+                System.out.print(" ["+i+"]["+CC_STAT_AREA +"]="+stats.get(i,CC_STAT_AREA)[0]+" ");
+            System.out.println("--------------------------------------");
+        }
+*/
+        //Convert Mat to matrix
+        statArray = new int[stats.rows()];
+        for (int i = 0; i < stats.rows(); i++){
+            statArray[i] = (int)stats.get(i,CC_STAT_AREA)[0];
+        }
+
+        for (int i = 0; i < labeled.rows(); i++){
+            for (int j = 0; j < labeled.cols(); j++){
+                if (statArray[(int)labeled.get(i,j)[0]] < 150)
+                    binary.put(i,j,0);
+            }
+        }
+        Utils.matToBitmap(binary,bmp);
+        saveImageToExternalStorage(bmp);
+
+        MatOfInt4 hough = new MatOfInt4();
+
+        Imgproc.HoughLinesP(binary, hough, 2, Math.PI/180, 15, 20, 20);
+        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
+        Imgproc.cvtColor(binary,finalImg,Imgproc.COLOR_GRAY2RGB);
+
+        for (int i = 0; i < hough.rows(); i++) {
+
+            double[] val = hough.get(i, 0);
+            Imgproc.line(finalImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 6);
+
+        }
+
+        Utils.matToBitmap(finalImg,bmp);
+        saveImageToExternalStorage(bmp);
+
+        Rgb[][] mat = matToRgbMatrix(finalImg);
+        Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        ArrayList<Point> lifeL= lifeStruct.m;
+
+
+        mat=matToRgbMatrix(lifeStruct.c);
+        Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        ArrayList<Point> heartL = heartStruct.m;
+
+
+        mat=matToRgbMatrix(heartStruct.c);
+        Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        ArrayList<Point> headL= headStruct.m;
+
+        Mat defImg = new Mat(bmp2.getHeight(),bmp2.getWidth(), CvType.CV_8UC3);
+
+        Utils.bitmapToMat(bmp2,defImg);
+
+        for (int i = 0; i < heartL.size()-1; i++) {
+
+            Imgproc.line(defImg, heartL.get(i), heartL.get(i+1), new Scalar(0, 255, 0), 10);
+
+        }
+
+        for (int i = 0; i < headL.size()-1; i++) {
+
+            Imgproc.line(defImg, headL.get(i), headL.get(i+1), new Scalar(0, 0, 255), 10);
+
+        }
+
+        for (int i = 0; i < lifeL.size()-1; i++) {
+
+            Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
+
+        }
+        System.out.println("LUNGHEZZA LINEE : prima: "+getLineLength(heartL)+" seconda:"+ getLineLength(headL)+ " terza:" + getLineLength(lifeL));
+
+        Utils.matToBitmap(defImg,bmp2);
+        saveImageToExternalStorage(bmp2);
+
+
+    }
+
+
+    private static void saveImageToExternalStorage(Bitmap finalBitmap) {
+        String root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString();
+        File myDir = new File(root + "/palmy_2");
+        myDir.mkdirs();
+        Random generator = new Random();
+        int n = 100000;
+        n = generator.nextInt(n);
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String fname = "Image-" + timeStamp + n + ".png";
+        File file = new File(myDir, fname);
+        if (file.exists())
+            file.delete();
+        try {
+            FileOutputStream out = new FileOutputStream(file);
+            finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+            out.flush();
+            out.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 }

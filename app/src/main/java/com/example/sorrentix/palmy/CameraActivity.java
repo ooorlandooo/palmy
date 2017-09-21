@@ -245,8 +245,10 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         }
         imagePath = fileHandler.getUriFromFile(imageFile).getPath();
         MediaScannerConnection.scanFile(this, new String[]{imagePath}, null, this);
-
-        launchLinesExtractorService();//FINE
+        launchLinesExtractorService();
+        Intent loading = new Intent(this, LoadingActivity.class);
+        startActivity(loading);
+        //FINE
 
     }
 
@@ -274,9 +276,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     @Override//METODO IN CUI SARA' MOSTRATA L'IMMAGINE CON LE LINEE SOPRA, INVOCATO AL TERMINE DEL SERVICE
     public void onReceiveResult(int resultCode, Bundle resultData) {
         Toast.makeText(this, "FINE SERVICE", Toast.LENGTH_SHORT).show();
-        if (resultCode == RESULT_OK) {
-            String newImagePath = resultData.getString(Message.IMG_PATH);
-            MediaScannerConnection.scanFile(this, new String[]{newImagePath}, null, this);
-        }
+
+
     }
 }
