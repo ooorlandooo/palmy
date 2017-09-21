@@ -45,15 +45,7 @@ public class ImageUtils {
         System.loadLibrary("opencv_java3");
     }
 
-    private static class Pair<T,S> {
-        private T m;
-        private S c;
 
-        Pair(T m, S c) {
-            this.m=m;
-            this.c=c;
-        }
-    }
 
     public static double[][] matToMatrix(Mat source) {
         if (source == null || source.empty()) {
@@ -485,7 +477,7 @@ public class ImageUtils {
 
 
 
-    public static Bitmap newTec(Bitmap bmp, Context c){
+    public static Pair<Bitmap,String> newTec(Bitmap bmp, Context c){
 
         Bitmap bmp2 = Bitmap.createBitmap(bmp);
 
@@ -642,12 +634,27 @@ public class ImageUtils {
         Utils.matToBitmap(defImg,bmp2);
         saveImageToExternalStorage(bmp2);
 
-       return bmp2;
+        Database db = new Database();
+        String prediction =   db.heartArrL.get((int)getLineLength(heartL))+db.heartArrS.get(slope(heartL))
+                            + db.headArrL.get((int)getLineLength(headL))+db.headArrS.get(slope(headL))
+                            + db.lifeArrL.get((int)getLineLength(lifeL))+db.lifeArrS.get(slope(lifeL));
 
 
+        return new Pair(bmp2, prediction);
     }
 
+    private static int slope(ArrayList<Point> arr) {
+        int slopecount=0;
+        if(arr.get(arr.size()-1).x - arr.get(0).x ==0)
+            slopecount = 90;
+        else{
+            double coeff =  ((arr.get(arr.size()-1).y - arr.get(0).y) / (arr.get(arr.size()-1).x - arr.get(0).x));
+            slopecount =(int) Math.toDegrees(Math.atan(coeff));
+        }
 
+
+        return slopecount%180;
+    }
     private static void saveImageToExternalStorage(Bitmap finalBitmap) {
         String root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString();
         File myDir = new File(root + "/palmy_2");
@@ -673,3 +680,12 @@ public class ImageUtils {
 
 }
 
+class Pair<T,S> {
+    public T m;
+    public S c;
+
+    Pair(T m, S c) {
+        this.m=m;
+        this.c=c;
+    }
+}

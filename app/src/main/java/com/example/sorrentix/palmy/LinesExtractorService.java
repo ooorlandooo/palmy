@@ -132,11 +132,14 @@ System.out.println("cropped width"+cropped.getWidth()+" height"+ cropped.getHeig
         }
 
         //  MediaScannerConnection.scanFile(this, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, this);
-       Bitmap bmp = ImageUtils.newTec(cropped,this);
+        Pair<Bitmap,String> results = ImageUtils.newTec(cropped,this);
+        Bitmap bmp = results.m;
+        String prediction = results.c;
         System.out.println("Fatto merge and save");
         Intent i = new Intent(this, ShowResultsActivity.class);
         // Add extras to the bundle
         i.putExtra("Bitmap", bmp);
+        i.putExtra("Prediction", prediction);
         startActivity(i);
     }
 
