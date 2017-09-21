@@ -22,7 +22,7 @@
         <activity
             android:name=".CameraActivity"
             android:screenOrientation="portrait"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"></activity>
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait">
@@ -39,8 +39,12 @@
 
         <activity
             android:name=".LoadingActivity"
-            android:theme="@style/AppDialog"
-            android:excludeFromRecents="true"/>
+            android:excludeFromRecents="true"
+            android:theme="@style/AppDialog" />
+        <activity
+            android:name=".ShowResultsActivity"
+
+            android:theme="@android:style/Theme.Light.NoTitleBar.Fullscreen" />
     </application>
 
 </manifest>

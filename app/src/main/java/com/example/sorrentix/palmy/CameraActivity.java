@@ -12,6 +12,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.hardware.Camera;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -59,6 +61,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     private double scaledX;
     private double scaledY;
     private Camera.Size best_size;
+    Drawable d;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,6 +78,13 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         holderTransparent.setFormat(PixelFormat.TRANSLUCENT);
         transparentView.setZOrderMediaOverlay(true);
 
+
+
+        Bitmap bMap = BitmapFactory.decodeResource(getResources(),R.drawable.palm_icon);
+
+
+
+        d = new BitmapDrawable(bMap);
 
 
         btn = (Button) findViewById(R.id.button_capture);
@@ -219,11 +229,15 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(Color.GREEN);
-        paint.setStrokeWidth(3);
+        paint.setStrokeWidth(5);
         System.out.println("DRAW DIM: "+deviceWidth+"*"+deviceHeight);
         System.out.println("REct x:"+(int)(deviceWidth/4)+" rect y:"+(int)((deviceHeight/2)-(deviceWidth/4))+" width:"+(int)(deviceWidth- deviceWidth/4)+"height"+(int)((deviceHeight/2)+(deviceWidth/4)));
         Rect square = new Rect((int)(deviceWidth/4),(int)((deviceHeight/2)-(deviceWidth/4)),(int)(deviceWidth- deviceWidth/4),(int)((deviceHeight/2)+(deviceWidth/4)));  //new Rect((int) RectLeft,(int)RectTop,(int)RectRight,(int)RectBottom);        canvas.drawRect(square,paint);
         canvas.drawRect(square,paint);
+        d.setBounds((int)(deviceWidth/3),10,(int)(deviceWidth- deviceWidth/3),(int)(10+(deviceWidth/3)));
+        d.draw(canvas);
+        paint.setTextSize(45);
+        canvas.drawText("Inserisci il palmo della tua mano sinistra nel riquadro", (int)(deviceWidth/70), (int)(100+(deviceWidth/3)), paint);
         holderTransparent.unlockCanvasAndPost(canvas);
     }
 

@@ -11,6 +11,8 @@ import android.os.Environment;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.example.sorrentix.palmy.util.Message;
+
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -43,10 +45,6 @@ public class ImageUtils {
         System.loadLibrary("opencv_java3");
     }
 
-    private static final String TAG = "ImageUtils";
-    private static FileHandler fileHandler = new FileHandler();
-    private static File imageFile;
-
     private static class Pair<T,S> {
         private T m;
         private S c;
@@ -55,27 +53,6 @@ public class ImageUtils {
             this.m=m;
             this.c=c;
         }
-    }
-
-
-    public static Bitmap overlay(Bitmap bmp1, Bitmap bmp2) {
-        Bitmap bmOverlay = Bitmap.createBitmap(bmp1.getWidth(), bmp1.getHeight(), bmp1.getConfig());
-        Canvas canvas = new Canvas(bmOverlay);
-        canvas.drawBitmap(bmp1, new Matrix(), null);
-        canvas.drawBitmap(bmp2, 0, 0, null);
-        return bmOverlay;
-    }
-
-    public static Bitmap getResizedBitmap(Bitmap bm, int newWidth, int newHeight) {
-        int width = bm.getWidth();
-        int height = bm.getHeight();
-        float scaleWidth = ((float) newWidth) / width;
-        float scaleHeight = ((float) newHeight) / height;
-        Matrix matrix = new Matrix();
-        matrix.postScale(scaleWidth, scaleHeight);
-        Bitmap resizedBitmap = Bitmap.createBitmap(bm, 0, 0, width, height, matrix, false);
-        bm.recycle();
-        return resizedBitmap;
     }
 
     public static double[][] matToMatrix(Mat source) {
@@ -87,7 +64,6 @@ public class ImageUtils {
 
         for (int i=0; i<source.height(); i++) {
             for (int j=0; j<source.width();j++){
-              //  System.out.println("I= "+i+" J= "+j);
                 result[i][j] = source.get(j,i)[0];
             }
 
@@ -104,9 +80,7 @@ public class ImageUtils {
         double [] temp = new double[3];
         for (int i=0; i<source.height(); i++) {
             for (int j=0; j<source.width();j++){
-                //  System.out.println("I= "+i+" J= "+j);
                 temp=source.get(j,i);
-              //  System.out.println(temp[0]+" "+temp[1]+" "+temp[2]);
                 result[i][j] = new Rgb(temp[0],temp[1],temp[2]);
             }
 
@@ -114,36 +88,6 @@ public class ImageUtils {
         return result;
     }
 
-    public static void printMatrix(SparseArray<Double> source, Mat dimentionSource) {
-
-        int i = 0,j = 0;
-
-        for (int k = 0;k < source.size();k++) {
-
-            System.out.print(" " + source.get(i*dimentionSource.width()+j) + " ");
-            j++;
-            if (k % dimentionSource.width() == 0 && k != 0) {
-                i++;
-                j=0;
-                System.out.println("---------------------------");
-                if( k>10*dimentionSource.width() ){break;}
-            }
-
-        }
-
-
-    }
-
-    public static void printOpenCVMatrix(Mat source) {
-
-        for (int i=0;i<source.height();i++) {
-            for (int j=0;j<source.width();j++) {
-                System.out.print(" "+source.get(j,i)[0]+" ");
-            }
-            //if( i>10 ){break;}
-            System.out.println("--------------------------------");
-        }
-    }
 
 
 
@@ -248,144 +192,6 @@ public class ImageUtils {
         return m;
     }
 
-
-
-    public static Uri mergeAndSave(Bitmap bmp, Context c){
-        Mat croppedImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
-        Mat filteredImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC1);
-        Utils.bitmapToMat(bmp,croppedImg);
-
-        Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_RGBA2GRAY);
-        //Approccio cinese
-        Imgproc.equalizeHist(croppedImg,croppedImg);
-        //Imgproc.medianBlur(croppedImg,croppedImg,25);
-        //Imgproc.blur(croppedImg,croppedImg,new Size(25,25));
-        Imgproc.bilateralFilter(croppedImg,filteredImg,13,26,7);
-        //salva(croppedImg, bmp, c);
-       // salva(filteredImg, bmp, c);
-        double cont = 0;
-        double k = 0;
-        Pair<double[][], Integer> p;
-        MatOfDouble mean = new MatOfDouble(),
-                stdDev = new MatOfDouble();
-        Core.meanStdDev(filteredImg, mean, stdDev);
-        double highThreshold = (mean.get(0, 0)[0] + stdDev.get(0, 0)[0]);
-        double lowThreshold = mean.get(0, 0)[0] - stdDev.get(0, 0)[0];
-        System.out.println("DIM CROPPED: "+filteredImg.width()+"*"+filteredImg.height());
-        double [][]matrixCanned = matToMatrix(filteredImg);
-        double [][]matrixCannedImg;
-
-        do {
-            cont = 0;
-
-            highThreshold += k;
-            Log.e(TAG, "mergeAndSave: HT=" + highThreshold + " - LT=" + lowThreshold);
-
-            matrixCannedImg = cannyEdgeDetector(matrixCanned, filteredImg.width(), filteredImg.height(), highThreshold, lowThreshold);
-            //salva(convertMatrixToMat(matrixCannedImg, filteredImg.width(), filteredImg.height()), bmp, c);
-
-            p = enlarging(matrixCannedImg, filteredImg.height(), filteredImg.width(),20);
-            //salva(convertMatrixToMat(p.m,filteredImg.width(), filteredImg.height()), bmp, c);
-
-
-            for (int i = 0; i < filteredImg.height(); i++) {
-                for (int j = 0; j < filteredImg.width(); j++) {
-                    if (p.m[i][j] != 0) {
-                        cont++;
-                    }
-                }
-            }
-            cont = (cont / (filteredImg.height() * filteredImg.width())) * 100;
-
-            if (cont <= 20 ){
-                k = k - 0.5 * (highThreshold + lowThreshold);
-                k = -Math.abs(k);
-            }else if(cont >= 27 || highThreshold<lowThreshold) {
-                k = (k + 0.5 * (highThreshold + lowThreshold))/2;
-                k=Math.abs(k);
-            }
-
-            System.out.println("%punti bianchi: "+cont+ " k = mAmmt"+k);
-        }while(cont<=20 || cont >=27);
-
-
-        salva(convertMatrixToMat(matrixCannedImg,filteredImg.width(),  filteredImg.height()), bmp, c);
-        matrixCannedImg = pointIsolation(matrixCannedImg,filteredImg.height(),filteredImg.width());
-
-       Pair<double[][],Integer> enlarged = enlarging(matrixCannedImg, filteredImg.height(),filteredImg.width(),7);
-       double[][] thinned = thinning(enlarged.m, filteredImg.height(),filteredImg.width());
-
-        thinned = contoursCleaning(thinned,filteredImg.height(),filteredImg.width());
-        Mat thinnedImg = convertMatrixToMat(thinned,filteredImg.height(),filteredImg.width());
-        salva(thinnedImg, bmp, c);
-
-        MatOfInt4 hough = new MatOfInt4();
-
-        Imgproc.HoughLinesP(thinnedImg, hough, 2, Math.PI/180, 15, 20, 40);
-        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
-        Imgproc.cvtColor(thinnedImg,thinnedImg,Imgproc.COLOR_GRAY2RGB);
-
-        for (int i = 0; i < hough.rows(); i++) {
-
-            double[] val = hough.get(i, 0);
-            Imgproc.line(thinnedImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 2);
-
-        }
-        salva(thinnedImg, bmp, c);
-        Rgb[][] mat = matToRgbMatrix(thinnedImg);
-        Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
-        ArrayList<Point> heartL = heartStruct.m;
-
-        mat=matToRgbMatrix(heartStruct.c);
-        Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
-        ArrayList<Point> headL= headStruct.m;
-
-        mat=matToRgbMatrix(headStruct.c);
-        Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,thinnedImg,thinnedImg.height(),thinnedImg.width());
-        ArrayList<Point> lifeL= lifeStruct.m;
-
-        Mat defImg = new Mat(bmp.getHeight(),bmp.getWidth(), CvType.CV_8UC3, new Scalar(4));
-
-        Utils.bitmapToMat(bmp,defImg);
-
-        for (int i = 0; i < heartL.size()-1; i++) {
-
-            Imgproc.line(defImg, heartL.get(i), heartL.get(i+1), new Scalar(0, 255, 0), 10);
-
-        }
-
-        for (int i = 0; i < headL.size()-1; i++) {
-
-            Imgproc.line(defImg, headL.get(i), headL.get(i+1), new Scalar(0, 0, 255), 10);
-
-        }
-
-        for (int i = 0; i < lifeL.size()-1; i++) {
-
-            Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
-
-        }
-
-
-
-        bmp = getResizedBitmap(bmp,thinnedImg.width(),thinnedImg.height());
-        Utils.matToBitmap(defImg,bmp);
-
-        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
-        FileOutputStream outputStream = null;
-        try {
-            outputStream = new FileOutputStream(imageFile);
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-            outputStream.flush();
-            outputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return fileHandler.getUriFromFile(imageFile);
-
-    }
-
     public static Pair<ArrayList<Point>,Mat> leftHeartLineDetection(Rgb[][] mat,Mat thinnedImg, int height, int width){
 
 
@@ -417,37 +223,27 @@ public class ImageUtils {
         mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
         Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
         flag=false;
-        double tAngolo;
-        double coeff;
         boolean stop=false;
         //TO DO: MODO PIU' EFFICIENTE?
         while(j>0 && !stop) {
             flag = false;
             for (int k = i - 5; k < i + 2; k++) {
                 for (int z = j - 5; z < j + 2; z++) {
-                    if (i >= 1 && j >= 5 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
+                    if (i >= 5 && i<width-2 && j >= 5 && j < width -2 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
 
                         mat[k][z].setBlue(0);
                         mat[k][z].setRed(0);
                         mat[k][z].setGreen(0);
 
                         Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
-                        if (k - i == 0)
-                            tAngolo = 90;
-                        else {
-                            coeff = (z - j) / (k - i);
-                            tAngolo = Math.toDegrees(Math.atan(coeff));
-                        }
-                        if (tAngolo == 0)
-                            System.out.println("HO TROVATO UN ANGOLO A 0!!!");
-                        if (tAngolo >= -45 && tAngolo <= 90  ) {
+
                             Point p = new Point(k, z);
                             arr.add(p);
                             i = k;
                             j = z;
                             flag = true;
                             break;
-                        }
+
                     }
                 }
                if(flag==true)
@@ -470,9 +266,7 @@ public class ImageUtils {
         boolean flag=false;
         //Scelta candidato
         for(int k=0;k<width-1;k++){
-            for(int z=0; z<0.25*height; z++){
-
-                //   System.out.println("Provo indici: "+ z+" "+k);
+            for(int z=0; z<0.45*height; z++){
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
                     j=z;
@@ -492,27 +286,15 @@ public class ImageUtils {
         mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
         Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
         flag=false;
-        double tAngolo;
-        double coeff;
         boolean stop=false;
-        //TO DO: MODO PIU' EFFICIENTE?
         while(i<width && !stop) {
             flag=false;
             for (int k=i+1; k<=i+5; k++) {
                 for (int z = j + 5; z > j - 2; z--) {
-                    System.out.println("Analizzo nuovo punto " + (int) mat[k][z].getRed() + " " + (int) mat[k][z].getGreen() + " " + (int) mat[k][z].getBlue());
-                    if (i < width-10 && j >= 5 && (((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() > 0 && (int) mat[k][z].getBlue() > 0) || ((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0))) {
+                    if (i < width-5 && j <width-5 && j > 2 && (((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() > 0 && (int) mat[k][z].getBlue() > 0) || ((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0))) {
 
                        Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
-                        if (i - k == 0)
-                            tAngolo = 90;
-                        else {
-                            coeff = (j - z) / (i - k);
-                            tAngolo = Math.toDegrees(Math.atan(coeff));
-                        }
-                        System.out.println("Angolo" + tAngolo);
-                        if (tAngolo >= -45) {
-                            System.out.println("ACCETTATO");
+
                             Point p = new Point(k, z);
                             arr.add(p);
                             i = k;
@@ -521,14 +303,13 @@ public class ImageUtils {
                             break;
                         }
                     }
-                }
+
                 if(flag)
                     break;
             }
             if(!flag)
                 stop=true;
         }
-        System.out.println("STOP="+stop);
         Pair<ArrayList<Point>,Mat> p = new Pair<ArrayList<Point>,Mat>(arr,thinnedImg);
         return p;
 
@@ -542,14 +323,13 @@ public class ImageUtils {
         int i=0,j=0;
         boolean flag=false;
         //Scelta candidato
-        for(int k=(int)(0.6*width);k>=0;k--){
-            for(int z=height-1; z>=(int)(0.6*height); z--){
+        for(int z=height-1; z>=(int)(0.4*height); z--){
+            for(int k=(int)(0.5*width);k>=(int)(0.3*width);k--){
 
-                //   System.out.println("Provo indici: "+ z+" "+k);
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
                     j=z;
-
+                    System.out.println("PRESO TRA 0.5 e 0.3");
                     break;
                 }
                 else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
@@ -558,36 +338,51 @@ public class ImageUtils {
                     mat[k][z].setGreen(0);
                 }
             }
-            if(i!=0 && j!=0)
+            if(i!=0 && j!=0) {
+                flag=true;
                 break;
+            }
         }
+        if(!flag){
+            for(int z=height-1; z>=(int)(0.4*height); z--){
+                for(int k=(int)(0.6*width);k>=(int)(0.5*width);k--){
 
+                    if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
+                        i=k;
+                        j=z;
+
+                        System.out.println("PRESO TRA 0.6 e 0.5");
+                        break;
+                    }
+                    else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
+                        mat[k][z].setBlue(0);
+                        mat[k][z].setRed(0);
+                        mat[k][z].setGreen(0);
+                    }
+                }
+                if(i!=0 && j!=0) {
+                    flag=true;
+                    break;
+                }
+            }
+        }
         arr.add(new Point(i,j));
         mat[i][j].setBlue(0);  mat[i][j].setGreen(0);  mat[i][j].setRed(0);
         Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
         flag=false;
-        double tAngolo;
-        double coeff;
         boolean stop=false;
-        //TO DO: MODO PIU' EFFICIENTE?
         while(j>0 && !stop) {
             flag=false;
-            int k=i-1;
-            for (int z = j - 10; z < j+2; z++) {
-                if (i>=1 && j>=10 && ( ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0 ) || ( (int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255 ) ) )  {
+            for (int k=i-2; k<i+3; k++) {
+                for (int z = j - 10; z < j + 2; z++) {
+                    if (i >= 2 && i<width-3 && z< width -2 && j >= 10 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
 
-                    mat[k][z].setBlue(0);
-                    mat[k][z].setRed(0);
-                    mat[k][z].setGreen(0);
+                        mat[k][z].setBlue(0);
+                        mat[k][z].setRed(0);
+                        mat[k][z].setGreen(0);
 
-                    Imgproc.line(thinnedImg, new Point(k,z), new Point(k,z), new Scalar(0, 0, 0), 30);
-                    if (k - i == 0)
-                        tAngolo = 90;
-                    else {
-                        coeff = (z - j) / (k - i);
-                        tAngolo = Math.toDegrees(Math.atan(coeff));
-                    }
-                    if (tAngolo >= -45 && tAngolo <= 90) {
+                        Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
+
                         Point p = new Point(k, z);
                         arr.add(p);
                         i = k;
@@ -596,6 +391,8 @@ public class ImageUtils {
                         break;
                     }
                 }
+                if(flag)
+                    break;
             }
             if(!flag)
                 stop=true;
@@ -606,233 +403,15 @@ public class ImageUtils {
 
 
     }
-    private static float gaussian(float x, double sigma) {
-        return (float) Math.exp(-(x * x) / (2f * sigma * sigma));
-    }
 
     private static double getLineLength(ArrayList<Point> arr){
         double cont =0;
         for(int i=0; i<arr.size()-1; i++){
-            cont = cont + Math.sqrt((arr.get(i).x-arr.get(i+1).x)+(arr.get(i).y-arr.get(i+1).y));
+            cont = cont + Math.sqrt(Math.abs((arr.get(i).x-arr.get(i+1).x)+(arr.get(i).y-arr.get(i+1).y)));
         }
         return cont;
     }
 
-    private static double hypot(double x, double y) {
-        return  Math.hypot(x, y);
-    }
-
-    public static double[][] cannyEdgeDetector(double[][] source,int width, int height, double highThreshold, double lowThreshold){
-        double []result = new double[width*height];
-        double [][]resultTwodim = new double[height][width];
-        // statics
-        double GAUSSIAN_CUT_OFF = 0.005f;
-        double MAGNITUDE_SCALE = 100F;
-        double MAGNITUDE_LIMIT = 1000F;
-        int MAGNITUDE_MAX = (int) (MAGNITUDE_SCALE * MAGNITUDE_LIMIT);
-        double kernelRadius = 2;
-        int kernelWidth = 16;
-        //generate the gaussian convolution masks
-        double kernel[] = new double[kernelWidth];
-        double diffKernel[] = new double[kernelWidth];
-        double[] xConv = new double[width*height];
-        double[] yConv = new double[width*height];
-        double [] xGradient = new double[width*height];
-        double [] yGradient = new double[width*height];
-        int[] magnitude = new int[width*height];
-
-        for (int i=0;i<height;i++) {
-            for (int j=0;j<width;j++){
-                result[i*width+j] = source[i][j];
-            }
-        }
-
-        int kwidth;
-
-        for (kwidth = 0; kwidth < kernelWidth; kwidth++) {
-
-            float g1 = gaussian(kwidth, kernelRadius);
-            if (g1 <= GAUSSIAN_CUT_OFF && kwidth >= 2) break;
-            float g2 = gaussian(kwidth - 0.5f, kernelRadius);
-            float g3 = gaussian(kwidth + 0.5f, kernelRadius);
-            kernel[kwidth] = (g1 + g2 + g3) / 3f / (2f * (float) Math.PI * kernelRadius * kernelRadius);
-            diffKernel[kwidth] = g3 - g2;
-        }
-
-        int initX = kwidth - 1;
-        int maxX = width - (kwidth - 1);
-        int initY = width * (kwidth - 1);
-        int maxY = width * (height - (kwidth - 1));
-
-        //perform convolution in x and y directions
-        for (int x = initX; x < maxX; x++) {
-            for (int y = initY; y < maxY; y += width) {
-                int index = x + y;
-                double sumX = result[index] * kernel[0];
-                double sumY = sumX;
-                int xOffset = 1;
-                int yOffset = width;
-                for(; xOffset < kwidth ;) {
-                    sumY += kernel[xOffset] * (result[index - yOffset] + result[index + yOffset]);
-                    sumX += kernel[xOffset] * (result[index - xOffset] + result[index + xOffset]);
-                    yOffset += width;
-                    xOffset++;
-                }
-
-                yConv[index] = sumY;
-                xConv[index] = sumX;
-            }
-
-        }
-
-        for (int x = initX; x < maxX; x++) {
-            for (int y = initY; y < maxY; y += width) {
-                float sum = 0f;
-                int index = x + y;
-                for (int i = 1; i < kwidth; i++)
-                    sum += diffKernel[i] * (yConv[index - i] - yConv[index + i]);
-
-                xGradient[index] = sum;
-            }
-
-        }
-
-        for (int x = kwidth; x < width - kwidth; x++) {
-            for (int y = initY; y < maxY; y += width) {
-                float sum = 0.0f;
-                int index = x + y;
-                int yOffset = width;
-                for (int i = 1; i < kwidth; i++) {
-                    sum += diffKernel[i] * (xConv[index - yOffset] - xConv[index + yOffset]);
-                    yOffset += width;
-                }
-
-                yGradient[index] = sum;
-            }
-
-        }
-
-        initX = kwidth;
-        maxX = width - kwidth;
-        initY = width * kwidth;
-        maxY = width * (height - kwidth);
-        for (int x = initX; x < maxX; x++) {
-            for (int y = initY; y < maxY; y += width) {
-                int index = x + y;
-                int indexN = index - width;
-                int indexS = index + width;
-                int indexW = index - 1;
-                int indexE = index + 1;
-                int indexNW = indexN - 1;
-                int indexNE = indexN + 1;
-                int indexSW = indexS - 1;
-                int indexSE = indexS + 1;
-
-                double xGrad = xGradient[index];
-                double yGrad = yGradient[index];
-                double gradMag = hypot(xGrad, yGrad);
-
-                //perform non-maximal supression
-                double nMag = hypot(xGradient[indexN], yGradient[indexN]);
-                double sMag = hypot(xGradient[indexS], yGradient[indexS]);
-                double wMag = hypot(xGradient[indexW], yGradient[indexW]);
-                double eMag = hypot(xGradient[indexE], yGradient[indexE]);
-                double neMag = hypot(xGradient[indexNE], yGradient[indexNE]);
-                double seMag = hypot(xGradient[indexSE], yGradient[indexSE]);
-                double swMag = hypot(xGradient[indexSW], yGradient[indexSW]);
-                double nwMag = hypot(xGradient[indexNW], yGradient[indexNW]);
-                double tmp;
-				/*
-				 * An explanation of what's happening here, for those who want
-				 * to understand the source: This performs the "non-maximal
-				 * supression" phase of the Canny edge detection in which we
-				 * need to compare the gradient magnitude to that in the
-				 * direction of the gradient; only if the value is a local
-				 * maximum do we consider the point as an edge candidate.
-				 *
-				 * We need to break the comparison into a number of different
-				 * cases depending on the gradient direction so that the
-				 * appropriate values can be used. To avoid computing the
-				 * gradient direction, we use two simple comparisons: first we
-				 * check that the partial derivatives have the same sign (1)
-				 * and then we check which is larger (2). As a consequence, we
-				 * have reduced the problem to one of four identical cases that
-				 * each test the central gradient magnitude against the values at
-				 * two points with 'identical support'; what this means is that
-				 * the geometry required to accurately interpolate the magnitude
-				 * of gradient function at those points has an identical
-				 * geometry (upto right-angled-rotation/reflection).
-				 *
-				 * When comparing the central gradient to the two interpolated
-				 * values, we avoid performing any divisions by multiplying both
-				 * sides of each inequality by the greater of the two partial
-				 * derivatives. The common comparand is stored in a temporary
-				 * variable (3) and reused in the mirror case (4).
-				 *
-				 */
-                if (xGrad * yGrad <= (float) 0 /*(1)*/
-                        ? Math.abs(xGrad) >= Math.abs(yGrad) /*(2)*/
-                        ? (tmp = Math.abs(xGrad * gradMag)) >= Math.abs(yGrad * neMag - (xGrad + yGrad) * eMag) /*(3)*/
-                        && tmp > Math.abs(yGrad * swMag - (xGrad + yGrad) * wMag) /*(4)*/
-                        : (tmp = Math.abs(yGrad * gradMag)) >= Math.abs(xGrad * neMag - (yGrad + xGrad) * nMag) /*(3)*/
-                        && tmp > Math.abs(xGrad * swMag - (yGrad + xGrad) * sMag) /*(4)*/
-                        : Math.abs(xGrad) >= Math.abs(yGrad) /*(2)*/
-                        ? (tmp = Math.abs(xGrad * gradMag)) >= Math.abs(yGrad * seMag + (xGrad - yGrad) * eMag) /*(3)*/
-                        && tmp > Math.abs(yGrad * nwMag + (xGrad - yGrad) * wMag) /*(4)*/
-                        : (tmp = Math.abs(yGrad * gradMag)) >= Math.abs(xGrad * seMag + (yGrad - xGrad) * sMag) /*(3)*/
-                        && tmp > Math.abs(xGrad * nwMag + (yGrad - xGrad) * nMag) /*(4)*/
-                        ) {
-                    magnitude[index] = gradMag >= MAGNITUDE_LIMIT ? MAGNITUDE_MAX : (int) (MAGNITUDE_SCALE * gradMag);
-                    //NOTE: The orientation of the edge is not employed by this
-                    //implementation. It is a simple matter to compute it at
-                    //this point as: Math.atan2(yGrad, xGrad);
-                } else {
-                    magnitude[index] = 0;
-                }
-            }
-        }
-
-        Arrays.fill(result, 0);
-
-        int offset = 0;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                //////6* orla
-                if (result[offset] == 0 && magnitude[offset] >= highThreshold) {
-                    follow(result, x, y, offset,width, height, (int)lowThreshold, magnitude);
-                }
-                offset++;
-            }
-        }
-
-        for (int i=0;i<height;i++) {
-            for (int j=0;j<width;j++){
-                resultTwodim[i][j]=result[i*width+j];
-            }
-        }
-
-        return resultTwodim;
-    }
-
-    private static void follow(double[] source, int x1, int y1, int i1,int width,int height, int threshold, int[]magnitude) {
-        int x0 = x1 == 0 ? x1 : x1 - 1;
-        int x2 = x1 == width - 1 ? x1 : x1 + 1;
-        int y0 = y1 == 0 ? y1 : y1 - 1;
-        int y2 = y1 == height -1 ? y1 : y1 + 1;
-
-        source[i1] = magnitude[i1];
-        for (int x = x0; x <= x2; x++) {
-            for (int y = y0; y <= y2; y++) {
-                int i2 = x + y * width;
-                if ((y != y1 || x != x1)
-                        && source[i2] == 0
-                        && magnitude[i2] >= threshold) {
-                    follow(source, x, y, i2, width, height,threshold,magnitude);
-                    return;
-                }
-            }
-        }
-    }
 
     public static double[][] contoursCleaning(double[][]m , int height, int width){
         for (int i = 0; i <= height - 1; i++) {
@@ -846,56 +425,7 @@ public class ImageUtils {
         return m;
     }
 
-    public static double[][] pointIsolation(double [][] m, int height, int width){
 
-        //Indici per identificare le aree da controllare
-        int x1=0;
-        int y1=0;
-        int x2=0;
-        int y2=0;
-
-
-        for (int i = 0; i <= height - 1; i++) {
-            for (int j = 0; j <= width - 1; j++) {
-
-                if(i==0 || j==0 || i==height-1 || j == width-1)
-                    m[i][j]=0;
-
-                else if(m[i][j]>=150.0) {
-                    if(i-20 < 0)
-                        x1=0;
-                    else x1=i-20;
-                    if(j-20 < 0)
-                        y1=0;
-                    else y1 = j-20;
-                    if(i+20 > height -1)
-                        x2=height-1;
-                    else x2=i+20;
-                    if(j+20 > width -1)
-                        y2 = width-1;
-                    else y2 = j+20;
-                    if(!checkNeighbors(m,x1,y1,x2,y2))
-                        m[i][j]=0.0;
-                }
-            }
-        }
-
-        return m;
-    }
-
-    public static boolean checkNeighbors(double [][]m,int x1,int y1, int x2, int y2) {
-
-        int cont = 0;
-        for (int i = x1; i < x2 - 1; i++) {
-            for (int j = y1; j < y2 - 1; j++) {
-                if (m[i][j] >= 150.0)
-                    cont++;
-                if (cont == 20)
-                    return true;
-            }
-        }
-        return false;
-    }
 
     public static Pair enlarging(double[][] cannedImage, int height, int width,int kernel){
 
@@ -953,28 +483,9 @@ public class ImageUtils {
         }
     }
 
-    public static void salva(Mat img,Bitmap bmp,Context c){
 
-        Bitmap bmp2 = Bitmap.createBitmap(bmp);
-        bmp2 = getResizedBitmap(bmp2,img.width(),img.height());
-        Utils.matToBitmap(img,bmp2);
 
-        imageFile = fileHandler.getOutputMediaFile(FileHandler.MEDIA_TYPE_IMAGE);
-        FileOutputStream outputStream = null;
-        try {
-            outputStream = new FileOutputStream(imageFile);
-            bmp2.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-            outputStream.flush();
-            outputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        MediaScannerConnection.scanFile(c, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, (MediaScannerConnection.OnScanCompletedListener)c);
-
-    }
-
-    public static void newTec(Bitmap bmp, Context c){
+    public static Bitmap newTec(Bitmap bmp, Context c){
 
         Bitmap bmp2 = Bitmap.createBitmap(bmp);
 
@@ -1031,18 +542,6 @@ public class ImageUtils {
         Mat centroids =  new Mat();
         Imgproc.connectedComponentsWithStats(binary,labeled,stats,centroids);
 
-/*        System.out.println("MATRICE LABELED");
-        for (int i = 0; i < labeled.rows(); i++){
-            for (int j = 0; j < labeled.cols(); j++){
-                System.out.println(" "+labeled.get(i,j)[0]+" ");
-            }
-        }
-        System.out.println("MATRICE STATS");
-        for (int i = 0; i < stats.rows(); i++){
-                System.out.print(" ["+i+"]["+CC_STAT_AREA +"]="+stats.get(i,CC_STAT_AREA)[0]+" ");
-            System.out.println("--------------------------------------");
-        }
-*/
         //Convert Mat to matrix
         int [] statArray = new int[stats.rows()];
         for (int i = 0; i < stats.rows(); i++){
@@ -1070,18 +569,6 @@ public class ImageUtils {
 
         Imgproc.connectedComponentsWithStats(binary,labeled,stats,centroids);
 
-/*        System.out.println("MATRICE LABELED");
-        for (int i = 0; i < labeled.rows(); i++){
-            for (int j = 0; j < labeled.cols(); j++){
-                System.out.println(" "+labeled.get(i,j)[0]+" ");
-            }
-        }
-        System.out.println("MATRICE STATS");
-        for (int i = 0; i < stats.rows(); i++){
-                System.out.print(" ["+i+"]["+CC_STAT_AREA +"]="+stats.get(i,CC_STAT_AREA)[0]+" ");
-            System.out.println("--------------------------------------");
-        }
-*/
         //Convert Mat to matrix
         statArray = new int[stats.rows()];
         for (int i = 0; i < stats.rows(); i++){
@@ -1100,7 +587,6 @@ public class ImageUtils {
         MatOfInt4 hough = new MatOfInt4();
 
         Imgproc.HoughLinesP(binary, hough, 2, Math.PI/180, 15, 20, 20);
-        //Imgproc.HoughLinesP(thinnedImg, hough, 1, Math.PI/180, 10, 30, 20);
         Imgproc.cvtColor(binary,finalImg,Imgproc.COLOR_GRAY2RGB);
 
         for (int i = 0; i < hough.rows(); i++) {
@@ -1127,6 +613,9 @@ public class ImageUtils {
         Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> headL= headStruct.m;
 
+        Utils.matToBitmap(headStruct.c,bmp);
+        saveImageToExternalStorage(bmp);
+
         Mat defImg = new Mat(bmp2.getHeight(),bmp2.getWidth(), CvType.CV_8UC3);
 
         Utils.bitmapToMat(bmp2,defImg);
@@ -1152,6 +641,8 @@ public class ImageUtils {
 
         Utils.matToBitmap(defImg,bmp2);
         saveImageToExternalStorage(bmp2);
+
+       return bmp2;
 
 
     }

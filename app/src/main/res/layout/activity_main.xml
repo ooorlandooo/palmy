@@ -36,12 +36,20 @@
                 android:background="@android:color/transparent"
                 />
 
+            <ImageView
+                android:id="@+id/imageView2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="10dp"
+                app:srcCompat="@drawable/palm_icon" />
+
         </FrameLayout>
         <Button
             android:id="@+id/button_capture"
-            android:text="Capture"
+            android:text="Scatta"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="60dp"
             android:layout_gravity="bottom"
             android:onClick="takeScreenShot"
             android:background="#444444"
