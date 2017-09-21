@@ -635,11 +635,15 @@ public class ImageUtils {
         saveImageToExternalStorage(bmp2);
 
         Database db = new Database();
-        String prediction =   db.heartArrL.get((int)getLineLength(heartL))+db.heartArrS.get(slope(heartL))
+        String prediction =   db.heartArrL.get(1)+db.heartArrS.get(1)
+                + db.headArrL.get(1)+db.headArrS.get(1)
+                + db.lifeArrL.get(1)+db.lifeArrS.get(1);
+
+        /*String prediction =   db.heartArrL.get((int)getLineLength(heartL))+db.heartArrS.get(slope(heartL))
                             + db.headArrL.get((int)getLineLength(headL))+db.headArrS.get(slope(headL))
                             + db.lifeArrL.get((int)getLineLength(lifeL))+db.lifeArrS.get(slope(lifeL));
 
-
+*/
         return new Pair(bmp2, prediction);
     }
 
