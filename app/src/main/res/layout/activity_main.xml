@@ -45,16 +45,21 @@
                 app:srcCompat="@drawable/palm_icon" />
 
         </FrameLayout>
+
         <Button
             android:id="@+id/button_capture"
-            android:text="Scatta"
             android:layout_width="match_parent"
             android:layout_height="40dp"
             android:layout_gravity="bottom"
+            android:background="#333333"
+            android:drawableStart="@android:drawable/ic_menu_camera"
+            android:gravity="left|center"
             android:onClick="takeScreenShot"
-            android:background="#444444"
+            android:paddingLeft="150dp"
+            android:text="Scatta"
+            android:textAllCaps="false"
             android:textColor="#cccccc"
-            />
+            android:textStyle="bold" />
 
     </LinearLayout>
 
