@@ -566,7 +566,7 @@ public class ImageUtils {
 
         for (int i = 0; i < labeled.rows(); i++){
             for (int j = 0; j < labeled.cols(); j++){
-                if (statArray[(int)labeled.get(i,j)[0]] < 150)
+                if (statArray[(int)labeled.get(i,j)[0]] < 180)
                     binary.put(i,j,0);
             }
         }
