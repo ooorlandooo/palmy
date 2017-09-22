@@ -140,6 +140,7 @@ System.out.println("cropped width"+cropped.getWidth()+" height"+ cropped.getHeig
         // Add extras to the bundle
         i.putExtra("Bitmap", bmp);
         i.putExtra("Prediction", prediction);
+        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
     }
 

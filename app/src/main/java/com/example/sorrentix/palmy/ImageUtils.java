@@ -475,6 +475,110 @@ public class ImageUtils {
         }
     }
 
+    private static Cluster[]  singleLinkClustering(Segment[] segments, double dimention) {
+        int clustersNumberGoal = 3;
+        int actualClustersNumber = segments.length;
+        Cluster [] clusters = new Cluster[segments.length];
+        double [][] proximityMatrix = new double[segments.length][segments.length];
+
+        System.out.println("segments number:"+segments.length);
+
+        for (int i = 0; i < segments.length; i++) {
+            clusters[i] = new Cluster(segments[i],segments.length,i);
+        }
+        for (int i = 0; i < segments.length; i++) {
+            for (int j = 0; j <= i; j++) {
+                if (i==j){
+                    proximityMatrix[i][j] = 0;
+                } else {
+                    proximityMatrix[i][j] = clusters[i].initDistance(clusters[j]);
+                    proximityMatrix[j][i] = proximityMatrix[i][j];
+                }
+            }
+        }
+
+
+        while(clustersNumberGoal < actualClustersNumber){
+            int firstNearestClusterIndex = -1, secondNearestClusterIndex = -1;
+            double currentLowerValue = dimention*dimention;
+
+            //cerco i due cluster piu vicini
+            for (int i = 0; i < segments.length; i++) {
+                for (int j = 0; j <= i; j++) {
+                    if (proximityMatrix[i][j] > 0){
+                        if      (currentLowerValue > proximityMatrix[i][j] ||
+                                (currentLowerValue == proximityMatrix[i][j] && clusters[firstNearestClusterIndex].clusterElements + clusters[secondNearestClusterIndex].clusterElements>(clusters[i].clusterElements + clusters[j].clusterElements))){
+                            firstNearestClusterIndex = i;
+                            secondNearestClusterIndex = j;
+                            currentLowerValue = proximityMatrix[i][j];
+                        }
+                    }
+                }
+            }
+
+            //faccio il merge dei cluster prescelti
+            clusters[firstNearestClusterIndex].addClusterSegments(clusters[secondNearestClusterIndex]);
+
+            //faccio l'update della matrice di prossimita
+            for (int i = 0; i < segments.length; i++) {
+
+                if (i !=firstNearestClusterIndex) {
+                    proximityMatrix[firstNearestClusterIndex][i] = Math.min(proximityMatrix[firstNearestClusterIndex][i],proximityMatrix[secondNearestClusterIndex][i]);
+                    proximityMatrix[i][firstNearestClusterIndex] = proximityMatrix[firstNearestClusterIndex][i];
+
+                    proximityMatrix[secondNearestClusterIndex][i]  = 0;
+                    proximityMatrix [i][secondNearestClusterIndex] = 0;
+                }
+            }
+            actualClustersNumber--;
+
+        }
+
+        for (int k = 0; k < clusters.length; k++ ){
+            int firstNearestClusterIndex = k, secondNearestClusterIndex = -1;
+            double currentLowerValue = dimention*dimention;
+            if ( clusters[k].clusterElements < 3 && clusters[k].clusterElements > 0 ){
+                //cerco i due cluster piu vicini
+                for (int j = 0; j <= k; j++) {
+                    if (proximityMatrix[k][j] > 0){
+                        if (currentLowerValue > proximityMatrix[k][j] ){
+                            firstNearestClusterIndex = k;
+                            secondNearestClusterIndex = j;
+                            currentLowerValue = proximityMatrix[k][j];
+                        }
+                    }
+                }
+                //faccio il merge dei cluster prescelti
+                if (!(firstNearestClusterIndex ==-1 || secondNearestClusterIndex == -1)) {
+                    clusters[firstNearestClusterIndex].addClusterSegments(clusters[secondNearestClusterIndex]);
+                    for (int i = 0; i < segments.length; i++) {
+
+                        if (i !=firstNearestClusterIndex) {
+                            proximityMatrix[firstNearestClusterIndex][i] = Math.min(proximityMatrix[firstNearestClusterIndex][i],proximityMatrix[secondNearestClusterIndex][i]);
+                            proximityMatrix[i][firstNearestClusterIndex] = proximityMatrix[firstNearestClusterIndex][i];
+
+                            proximityMatrix[secondNearestClusterIndex][i]  = 0;
+                            proximityMatrix [i][secondNearestClusterIndex] = 0;
+                        }
+                    }
+                    clustersNumberGoal--;
+                }
+            }
+        }
+
+
+       Cluster []result = new Cluster[clustersNumberGoal];
+        int index = 0;
+       for (int i = 0; i< clusters.length;i++){
+           if (clusters[i].clusterElements > 0 ){
+               result[index] = clusters[i];
+               index++;
+           }
+       }
+
+
+       return result;
+    }
 
 
     public static Pair<Bitmap,String> newTec(Bitmap bmp, Context c){
@@ -581,55 +685,75 @@ public class ImageUtils {
         Imgproc.HoughLinesP(binary, hough, 2, Math.PI/180, 15, 20, 20);
         Imgproc.cvtColor(binary,finalImg,Imgproc.COLOR_GRAY2RGB);
 
+        Segment []segments = new Segment[hough.rows()];
         for (int i = 0; i < hough.rows(); i++) {
 
             double[] val = hough.get(i, 0);
             Imgproc.line(finalImg, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(255, 0, 0), 6);
-
+            segments[i] = new Segment(val[0], val[1], val[2], val[3]);
         }
+
+        System.out.println("before single link");
+        Cluster []lines = singleLinkClustering(segments, finalImg.width());
+        System.out.println("afterSingleLink");
 
         Utils.matToBitmap(finalImg,bmp);
         saveImageToExternalStorage(bmp);
 
-        Rgb[][] mat = matToRgbMatrix(finalImg);
-        Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
-        ArrayList<Point> lifeL= lifeStruct.m;
+        //Rgb[][] mat = matToRgbMatrix(finalImg);
+        //Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        //ArrayList<Point> lifeL= lifeStruct.m;
 
 
-        mat=matToRgbMatrix(lifeStruct.c);
-        Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
-        ArrayList<Point> heartL = heartStruct.m;
+        //mat=matToRgbMatrix(lifeStruct.c);
+        //Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        //ArrayList<Point> heartL = heartStruct.m;
 
 
-        mat=matToRgbMatrix(heartStruct.c);
-        Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
-        ArrayList<Point> headL= headStruct.m;
+        //mat=matToRgbMatrix(heartStruct.c);
+        //Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+        //ArrayList<Point> headL= headStruct.m;
 
-        Utils.matToBitmap(headStruct.c,bmp);
-        saveImageToExternalStorage(bmp);
+        //Utils.matToBitmap(headStruct.c,bmp);
+        //saveImageToExternalStorage(bmp);
 
         Mat defImg = new Mat(bmp2.getHeight(),bmp2.getWidth(), CvType.CV_8UC3);
 
         Utils.bitmapToMat(bmp2,defImg);
 
-        for (int i = 0; i < heartL.size()-1; i++) {
+        if (lines[0] != null) {
+            for (int i = 0; i < lines[0].clusterElements-1; i++) {
 
-            Imgproc.line(defImg, heartL.get(i), heartL.get(i+1), new Scalar(0, 255, 0), 10);
+                Imgproc.line(defImg, lines[0].segments[i].first, lines[0].segments[i].second, new Scalar(0, 255, 0), 10);
+                Imgproc.line(defImg, lines[0].segments[i].second, lines[0].segments[i+1].first, new Scalar(0, 255, 0), 10);
+
+            }
+            Imgproc.line(defImg, lines[0].segments[lines[0].clusterElements-1].first, lines[0].segments[lines[0].clusterElements-1].second, new Scalar(0, 255, 0), 10);
+
+        }
+
+        if (lines[1] != null) {
+            for (int i = 0; i < lines[1].clusterElements-1; i++) {
+
+                Imgproc.line(defImg, lines[1].segments[i].first, lines[1].segments[i].second, new Scalar(0, 0, 255), 10);
+                Imgproc.line(defImg, lines[1].segments[i].second, lines[1].segments[i+1].first, new Scalar(0, 0, 255), 10);
+
+            }
+            Imgproc.line(defImg, lines[1].segments[lines[1].clusterElements-1].first, lines[1].segments[lines[1].clusterElements-1].second, new Scalar(0, 0, 255), 10);
 
         }
 
-        for (int i = 0; i < headL.size()-1; i++) {
+        if (lines[2] != null) {
+            for (int i = 0; i < lines[2].clusterElements-1; i++) {
 
-            Imgproc.line(defImg, headL.get(i), headL.get(i+1), new Scalar(0, 0, 255), 10);
+                Imgproc.line(defImg, lines[2].segments[i].first, lines[2].segments[i].second, new Scalar(255, 0, 0), 10);
+                Imgproc.line(defImg, lines[2].segments[i].second, lines[2].segments[i+1].first, new Scalar(255, 0, 0), 10);
+
+            }
+            Imgproc.line(defImg, lines[2].segments[lines[2].clusterElements-1].first, lines[2].segments[lines[2].clusterElements-1].second, new Scalar(255, 0, 0), 10);
 
         }
-
-        for (int i = 0; i < lifeL.size()-1; i++) {
-
-            Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
-
-        }
-        System.out.println("LUNGHEZZA LINEE : prima: "+getLineLength(heartL)+" seconda:"+ getLineLength(headL)+ " terza:" + getLineLength(lifeL));
+       // System.out.println("LUNGHEZZA LINEE : prima: "+getLineLength(heartL)+" seconda:"+ getLineLength(headL)+ " terza:" + getLineLength(lifeL));
 
         Utils.matToBitmap(defImg,bmp2);
         saveImageToExternalStorage(bmp2);
@@ -691,5 +815,49 @@ class Pair<T,S> {
     Pair(T m, S c) {
         this.m=m;
         this.c=c;
+    }
+}
+
+class Segment{
+    Point first, second;
+    Segment(double x1, double y1, double x2, double y2){
+        first = new Point(x1,y1);
+        second = new Point(x2,y2);
+    }
+}
+
+class Cluster {
+    int tag, clusterElements = 0;
+    Segment [] segments;
+
+    public Cluster ( Segment s, int maximumSegmentsNumber, int tag) {
+        this.segments = new Segment[maximumSegmentsNumber];
+        this.segments[clusterElements] = s;
+        clusterElements++;
+        this.tag = tag;
+    }
+
+    public double initDistance(Cluster c){
+        double euclideanDistanceFirstWithFirst = Math.sqrt(Math.pow(this.segments[0].first.x-c.segments[0].first.x,2)+Math.pow(this.segments[0].first.y-c.segments[0].first.y,2));
+        double euclideanDistanceFirstWithSecond = Math.sqrt(Math.pow(this.segments[0].first.x-c.segments[0].second.x,2)+Math.pow(this.segments[0].first.y-c.segments[0].second.y,2));
+        double euclideanDistanceSecondWithFirst = Math.sqrt(Math.pow(this.segments[0].second.x-c.segments[0].first.x,2)+Math.pow(this.segments[0].second.y-c.segments[0].first.y,2));
+        double euclideanDistanceSecondWithSecond = Math.sqrt(Math.pow(this.segments[0].second.x-c.segments[0].second.x,2)+Math.pow(this.segments[0].second.y-c.segments[0].second.y,2));
+
+        return Math.min( Math.min( Math.min( euclideanDistanceFirstWithFirst,
+                                                                    euclideanDistanceFirstWithSecond),
+                                                                    euclideanDistanceSecondWithFirst),
+                                                                    euclideanDistanceSecondWithSecond);
+    }
+
+    public void addClusterSegments( Cluster c){
+        int currentElementsNumber = this.clusterElements;
+        int index = 0;
+
+        for(int i = currentElementsNumber; i < c.clusterElements + currentElementsNumber;i++){
+            this.segments[i]=c.segments[index];
+            index++;
+            this.clusterElements++;
+        }
+        c.clusterElements = 0;
     }
 }
