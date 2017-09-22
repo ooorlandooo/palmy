@@ -257,7 +257,7 @@ public class ImageUtils {
         int i=0,j=0;
         boolean flag=false;
         //Scelta candidato
-        for(int k=0;k<width-1;k++){
+        for(int k=50;k<width-1;k++){
             for(int z=0; z<0.45*height; z++){
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
@@ -282,8 +282,8 @@ public class ImageUtils {
         while(i<width && !stop) {
             flag=false;
             for (int k=i+1; k<=i+5; k++) {
-                for (int z = j + 5; z > j - 2; z--) {
-                    if (i < width-5 && j <width-5 && j > 2 && (((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() > 0 && (int) mat[k][z].getBlue() > 0) || ((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0))) {
+                for (int z = j + 5; z > j - 4; z--) {
+                    if (i < width-5 && j < width-5 && j >=5 && (((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() > 0 && (int) mat[k][z].getBlue() > 0) || ((int) mat[k][z].getRed() > 0 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0))) {
 
                        Imgproc.line(thinnedImg, new Point(k, z), new Point(k, z), new Scalar(0, 0, 0), 30);
 
@@ -316,12 +316,11 @@ public class ImageUtils {
         boolean flag=false;
         //Scelta candidato
         for(int z=height-1; z>=(int)(0.4*height); z--){
-            for(int k=(int)(0.5*width);k>=(int)(0.3*width);k--){
+            for(int k=(int)(0.5*width);k>=(int)(0.4*width);k--){
 
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
                     j=z;
-                    System.out.println("PRESO TRA 0.5 e 0.3");
                     break;
                 }
                 else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
@@ -342,8 +341,6 @@ public class ImageUtils {
                     if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                         i=k;
                         j=z;
-
-                        System.out.println("PRESO TRA 0.6 e 0.5");
                         break;
                     }
                     else if ((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==255 && (int)mat[k][z].getBlue()==255){
@@ -605,6 +602,9 @@ public class ImageUtils {
         Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> headL= headStruct.m;
 
+        if (getLineLength(heartL) == 0 || getLineLength(headL) == 0 || getLineLength(lifeL) == 0)
+            return null;
+
         Utils.matToBitmap(headStruct.c,bmp);
         saveImageToExternalStorage(bmp);
 
@@ -635,15 +635,33 @@ public class ImageUtils {
         saveImageToExternalStorage(bmp2);
 
         Database db = new Database();
-        String prediction =   db.heartArrL.get(1)+db.heartArrS.get(1)
-                + db.headArrL.get(1)+db.headArrS.get(1)
-                + db.lifeArrL.get(1)+db.lifeArrS.get(1);
 
-        /*String prediction =   db.heartArrL.get((int)getLineLength(heartL))+db.heartArrS.get(slope(heartL))
-                            + db.headArrL.get((int)getLineLength(headL))+db.headArrS.get(slope(headL))
-                            + db.lifeArrL.get((int)getLineLength(lifeL))+db.lifeArrS.get(slope(lifeL));
+        int heartLength ;
+        if(getLineLength(heartL)>=500)
+            heartLength=499;
+        else
+            heartLength=(int)getLineLength(heartL);
 
-*/
+        int headLength ;
+        if(getLineLength(headL)>=500)
+            headLength=499;
+        else
+            headLength=(int)getLineLength(headL);
+
+        int lifeLength ;
+        if(getLineLength(lifeL)>=500)
+            lifeLength=499;
+        else
+            lifeLength=(int)getLineLength(lifeL);
+
+        String prediction =   db.heartArrL.get(heartLength)
+                            +db.heartArrS.get(Math.abs(slope(heartL)))
+                            + db.headArrL.get(headLength)
+                            +db.headArrS.get(Math.abs(slope(headL)))
+                            + db.lifeArrL.get(lifeLength)
+                            +db.lifeArrS.get(Math.abs(slope(lifeL)));
+
+
         return new Pair(bmp2, prediction);
     }
 

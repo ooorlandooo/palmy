@@ -10,6 +10,8 @@ import android.view.Window;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.io.File;
+
 public class ShowResultsActivity extends Activity {
 
     Bitmap bmp;
@@ -21,6 +23,7 @@ public class ShowResultsActivity extends Activity {
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_show_results);
 
+        System.out.println("CIAO SONO LA ACTIVITY");
         Intent intent = getIntent();
         bmp = intent.getParcelableExtra("Bitmap");
         prediction = intent.getStringExtra("Prediction");
