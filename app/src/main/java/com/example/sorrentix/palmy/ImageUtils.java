@@ -219,9 +219,9 @@ public class ImageUtils {
         //TO DO: MODO PIU' EFFICIENTE?
         while(j>0 && !stop) {
             flag = false;
-            for (int k = i - 5; k < i + 2; k++) {
-                for (int z = j - 5; z < j + 2; z++) {
-                    if (i >= 5 && i<width-2 && j >= 5 && j < width -2 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
+            for (int k = i - 2; k < i + 2; k++) {
+                for (int z = j - 2; z < j + 2; z++) {
+                    if (i >= 2 && i<width-2 && j >= 2 && j < width -2 && (((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 0 && (int) mat[k][z].getBlue() == 0) || ((int) mat[k][z].getRed() == 255 && (int) mat[k][z].getGreen() == 255 && (int) mat[k][z].getBlue() == 255))) {
 
                         mat[k][z].setBlue(0);
                         mat[k][z].setRed(0);
@@ -537,6 +537,7 @@ public class ImageUtils {
             statArray[i] = (int)stats.get(i,CC_STAT_AREA)[0];
         }
 
+
         for (int i = 0; i < labeled.rows(); i++){
             for (int j = 0; j < labeled.cols(); j++){
                 if (statArray[(int)labeled.get(i,j)[0]] < 300)
@@ -566,7 +567,7 @@ public class ImageUtils {
 
         for (int i = 0; i < labeled.rows(); i++){
             for (int j = 0; j < labeled.cols(); j++){
-                if (statArray[(int)labeled.get(i,j)[0]] < 180)
+                if (statArray[(int)labeled.get(i,j)[0]] < 235)
                     binary.put(i,j,0);
             }
         }
@@ -591,16 +592,34 @@ public class ImageUtils {
         Rgb[][] mat = matToRgbMatrix(finalImg);
         Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> lifeL= lifeStruct.m;
+        if(getLineLength(lifeL)<200){
+            mat=matToRgbMatrix(lifeStruct.c);
+            lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+            if(getLineLength(lifeL)< getLineLength(lifeStruct.m))
+                lifeL = lifeStruct.m;
+        }
 
 
         mat=matToRgbMatrix(lifeStruct.c);
         Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> heartL = heartStruct.m;
+        if(getLineLength(heartL)<200){
+            mat=matToRgbMatrix(heartStruct.c);
+            heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+           if(getLineLength(heartL) < getLineLength(heartStruct.m))
+               heartL = heartStruct.m;
+        }
 
 
         mat=matToRgbMatrix(heartStruct.c);
         Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> headL= headStruct.m;
+        if(getLineLength(headL)<200){
+            mat=matToRgbMatrix(headStruct.c);
+            headStruct =leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
+            if(getLineLength(headL) < getLineLength(headStruct.m))
+                headL = headStruct.m;
+        }
 
         if (getLineLength(heartL) == 0 || getLineLength(headL) == 0 || getLineLength(lifeL) == 0)
             return null;
