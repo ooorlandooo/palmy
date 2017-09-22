@@ -34,4 +34,11 @@ public class ShowResultsActivity extends Activity {
         TextView txt = (TextView) findViewById(R.id.textView);
         txt.setText(prediction);
     }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        Intent mainActivity = new Intent(this, MainActivity.class);
+        startActivity(mainActivity);
+    }
 }
