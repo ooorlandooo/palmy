@@ -25,8 +25,8 @@
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
-            android:label="@string/app_name">
+            android:label="@string/app_name"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -40,12 +40,17 @@
 
         <activity
             android:name=".LoadingActivity"
+            android:screenOrientation="portrait"
             android:excludeFromRecents="true"
             android:theme="@style/AppDialog" />
         <activity
             android:name=".ShowResultsActivity"
-
+            android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Light.NoTitleBar.Fullscreen" />
+        <activity android:name=".ErrorActivity"
+            android:screenOrientation="portrait"
+            android:excludeFromRecents="true"
+            android:theme="@style/AppDialog"/>
     </application>
 
 </manifest>

@@ -57,7 +57,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
     private FileHandler fileHandler = new FileHandler();
     private File imageFile;
-    private String imagePath;
+    private  String imagePath;
     private double scaledX;
     private double scaledY;
     private Camera.Size best_size;

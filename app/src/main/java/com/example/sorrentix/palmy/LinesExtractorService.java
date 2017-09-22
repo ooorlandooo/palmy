@@ -1,9 +1,11 @@
 package com.example.sorrentix.palmy;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.IntentService;
 import android.app.Notification;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
@@ -133,14 +135,20 @@ System.out.println("cropped width"+cropped.getWidth()+" height"+ cropped.getHeig
 
         //  MediaScannerConnection.scanFile(this, new String[]{fileHandler.getUriFromFile(imageFile).getPath()}, null, this);
         Pair<Bitmap,String> results = ImageUtils.newTec(cropped,this);
-        Bitmap bmp = results.m;
-        String prediction = results.c;
-        System.out.println("Fatto merge and save");
-        Intent i = new Intent(this, ShowResultsActivity.class);
-        // Add extras to the bundle
-        i.putExtra("Bitmap", bmp);
-        i.putExtra("Prediction", prediction);
-        startActivity(i);
+        if(results == null){
+            Intent err = new Intent(this, ErrorActivity.class);
+            startActivity(err);
+        }
+        else {
+            Bitmap bmp = results.m;
+            String prediction = results.c;
+            System.out.println("Fatto merge and save");
+            Intent i = new Intent(this, ShowResultsActivity.class);
+            // Add extras to the bundle
+            i.putExtra("Bitmap", bmp);
+            i.putExtra("Prediction", prediction);
+            startActivity(i);
+        }
     }
 
     private static Bitmap rotateImage(Bitmap source, float angle) {

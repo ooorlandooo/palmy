@@ -15,4 +15,5 @@ public class Message {
     public static final String SCALEDX = "scaledx";
     public static final String SCALEDY = "scaledy";
     public static final String DEVICE_HEIGHT= "deviceheight";
+    public static final String BITMAP= "bitmap";
 }
