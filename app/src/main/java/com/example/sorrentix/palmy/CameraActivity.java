@@ -269,7 +269,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     }
 
     private void launchLinesExtractorService() {
-        Toast.makeText(this, "CHIAMO IL SERVICE", Toast.LENGTH_SHORT).show();
         Intent i = new Intent(this, LinesExtractorService.class);
         // Add extras to the bundle
         i.putExtra(Message.RECEIVER_TAG, mReceiver);
@@ -289,10 +288,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     }
 
 
-    @Override//METODO IN CUI SARA' MOSTRATA L'IMMAGINE CON LE LINEE SOPRA, INVOCATO AL TERMINE DEL SERVICE
+    @Override
     public void onReceiveResult(int resultCode, Bundle resultData) {
-        Toast.makeText(this, "FINE SERVICE", Toast.LENGTH_SHORT).show();
-
 
     }
 }

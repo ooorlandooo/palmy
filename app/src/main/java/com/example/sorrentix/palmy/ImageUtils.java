@@ -500,7 +500,12 @@ public class ImageUtils {
         saveImageToExternalStorage(bmp);
         //STEP 2 todo check filter type (suggested gausssian 5x5 + median 3x3)
         //Imgproc.bilateralFilter(croppedImg,filteredImg,5,10,3);
-        Imgproc.blur(croppedImg,filteredImg,new Size(15,15));
+        Imgproc.bilateralFilter(croppedImg,filteredImg,26,52,13);
+        Utils.matToBitmap(filteredImg,bmp);
+        saveImageToExternalStorage(bmp);
+        Imgproc.blur(filteredImg,filteredImg,new Size(9,9));
+        Utils.matToBitmap(filteredImg,bmp);
+        saveImageToExternalStorage(bmp);
         Imgproc.medianBlur(filteredImg,filteredImg,11);
         Utils.matToBitmap(filteredImg,bmp);
         saveImageToExternalStorage(bmp);
@@ -548,7 +553,7 @@ public class ImageUtils {
         saveImageToExternalStorage(bmp);
 
         double[][] binaryMatrix = matToMatrix(binary);
-        Pair<double[][],Object> p = enlarging(binaryMatrix,bmp.getHeight(),bmp.getWidth(),5);
+        Pair<double[][],Object> p = enlarging(binaryMatrix,bmp.getHeight(),bmp.getWidth(),4);
         binary = convertMatrixToMat(p.m,bmp.getHeight(),bmp.getWidth());
         Utils.matToBitmap(binary,bmp);
         saveImageToExternalStorage(bmp);
@@ -567,7 +572,7 @@ public class ImageUtils {
 
         for (int i = 0; i < labeled.rows(); i++){
             for (int j = 0; j < labeled.cols(); j++){
-                if (statArray[(int)labeled.get(i,j)[0]] < 235)
+                if (statArray[(int)labeled.get(i,j)[0]] < 195)
                     binary.put(i,j,0);
             }
         }
