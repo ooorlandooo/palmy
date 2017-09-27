@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.sorrentix.palmy.CameraActivity">
+    tools:context="com.example.sorrentix.palmy.CameraActivity"
+    android:keepScreenOn="true">
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:orientation="vertical"
@@ -35,17 +36,30 @@
                 android:background="@android:color/transparent"
                 />
 
+            <ImageView
+                android:id="@+id/imageView2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="10dp"
+                app:srcCompat="@drawable/palm_icon" />
+
         </FrameLayout>
+
         <Button
             android:id="@+id/button_capture"
-            android:text="Capture"
             android:layout_width="match_parent"
             android:layout_height="40dp"
             android:layout_gravity="bottom"
+            android:background="#333333"
+            android:drawableStart="@android:drawable/ic_menu_camera"
+            android:gravity="left|center"
             android:onClick="takeScreenShot"
-            android:background="#444444"
+            android:paddingLeft="150dp"
+            android:text="Scatta"
+            android:textAllCaps="false"
             android:textColor="#cccccc"
-            />
+            android:textStyle="bold" />
 
     </LinearLayout>
 

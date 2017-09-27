@@ -12,6 +12,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.hardware.Camera;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -55,10 +57,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
     private FileHandler fileHandler = new FileHandler();
     private File imageFile;
-    private String imagePath;
+    private  String imagePath;
     private double scaledX;
     private double scaledY;
     private Camera.Size best_size;
+    Drawable d;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,6 +80,13 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
 
 
 
+        Bitmap bMap = BitmapFactory.decodeResource(getResources(),R.drawable.palm_icon);
+
+
+
+        d = new BitmapDrawable(bMap);
+
+
         btn = (Button) findViewById(R.id.button_capture);
 
         mReceiver = new MyResultReceiver(new Handler());
@@ -84,7 +94,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     }
 
     public void takeScreenShot(View v) {
-        System.out.println("foto scattata");
         mCamera.takePicture(null,null,this);
 
     }
@@ -123,8 +132,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         double temp_aspect_ratio = 0;
         double best_aspect_ratio_diff = 100;
         for (Camera.Size imgSize : imageSizes){
-            System.out.println("cuyrrent evaluating size: width:"+imgSize.width+"height"+imgSize.height);
-            System.out.println("best_aspect_ratio_diff:"+best_aspect_ratio_diff+" temp_aspect_ratio"+temp_aspect_ratio+" surfaceAspect"+surfaceAspect);
             temp_aspect_ratio = (double)(imgSize.width)/(double)(imgSize.height);
             if (imgSize.height >= deviceWidth && imgSize.width >= (deviceHeight/2)+(deviceWidth/2) && (Math.abs(surfaceAspect-temp_aspect_ratio)<=best_aspect_ratio_diff)){
                 best_size = imgSize;
@@ -133,28 +140,19 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         }
         scaledX = best_size.height/deviceWidth;
         scaledY = best_size.width/deviceHeight;
-        System.out.println("DEVICE: deviceWidth="+deviceWidth+" deviceheight="+deviceHeight);
-        System.out.println("FATTORI DI SCALA: X="+scaledX+" Y="+scaledY);
-        System.out.println("BEST SIZE: "+best_size.width+"x"+best_size.height);
        double aspect_ratio = best_size.height/best_size.width;
          best_aspect_ratio_diff = 100;
-         temp_aspect_ratio = 0;
         List<Camera.Size> previewSizes = mCamera.getParameters().getSupportedPreviewSizes();
-        best_preview = previewSizes.get(imageSizes.size()-1);
+        best_preview = previewSizes.get(previewSizes.size()-1);
 
         for (Camera.Size previewSize : previewSizes){
             temp_aspect_ratio = previewSize.height/previewSize.width;
-            //System.out.println("Dimensione delle merde:"+previewSize.width+" "+previewSize.height+" "+deviceWidth);
             if (previewSize.height >= deviceWidth && previewSize.width >= (deviceHeight/2)+(deviceWidth/2) && (Math.abs(aspect_ratio-temp_aspect_ratio)<=best_aspect_ratio_diff)){
                 best_aspect_ratio_diff = Math.abs(aspect_ratio-temp_aspect_ratio);
                 best_preview = previewSize;
               if (best_aspect_ratio_diff == 0) break;
             }
         }
-
-
-
-        //System.out.println("Dimensione delle immagini:"+best_size);
         params.setPreviewSize(best_preview.width,best_preview.height);
         params.setPictureSize(best_size.width,best_size.height);
         mCamera.setParameters(params);
@@ -203,14 +201,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
     }
 
 
-    private int getScreenWidth() {
-        return Resources.getSystem().getDisplayMetrics().widthPixels;
-    }
 
-
-    private int getScreenHeight() {
-        return Resources.getSystem().getDisplayMetrics().heightPixels;
-    }
 
     private void draw(){
         Canvas canvas = holderTransparent.lockCanvas(null);
@@ -219,11 +210,17 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(Color.GREEN);
-        paint.setStrokeWidth(3);
+        paint.setStrokeWidth(5);
         System.out.println("DRAW DIM: "+deviceWidth+"*"+deviceHeight);
         System.out.println("REct x:"+(int)(deviceWidth/4)+" rect y:"+(int)((deviceHeight/2)-(deviceWidth/4))+" width:"+(int)(deviceWidth- deviceWidth/4)+"height"+(int)((deviceHeight/2)+(deviceWidth/4)));
         Rect square = new Rect((int)(deviceWidth/4),(int)((deviceHeight/2)-(deviceWidth/4)),(int)(deviceWidth- deviceWidth/4),(int)((deviceHeight/2)+(deviceWidth/4)));  //new Rect((int) RectLeft,(int)RectTop,(int)RectRight,(int)RectBottom);        canvas.drawRect(square,paint);
         canvas.drawRect(square,paint);
+        d.setBounds((int)(deviceWidth/3),(int)(deviceHeight/14),(int)(deviceWidth- deviceWidth/3),(int)((deviceHeight/14)+(deviceWidth/3)));
+        d.draw(canvas);
+        paint.setTextSize(40);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        canvas.drawText("Inserisci il palmo della tua mano sinistra nel riquadro", (int)(deviceWidth/15), (int)((deviceHeight/2 + deviceHeight/3)), paint);
         holderTransparent.unlockCanvasAndPost(canvas);
     }
 
@@ -245,13 +242,14 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         }
         imagePath = fileHandler.getUriFromFile(imageFile).getPath();
         MediaScannerConnection.scanFile(this, new String[]{imagePath}, null, this);
+        launchLinesExtractorService();
+        Intent loading = new Intent(this, LoadingActivity.class);
+        startActivity(loading);
 
-        launchLinesExtractorService();//FINE
 
     }
 
     private void launchLinesExtractorService() {
-        Toast.makeText(this, "CHIAMO IL SERVICE", Toast.LENGTH_SHORT).show();
         Intent i = new Intent(this, LinesExtractorService.class);
         // Add extras to the bundle
         i.putExtra(Message.RECEIVER_TAG, mReceiver);
@@ -265,18 +263,19 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback,
         i.putExtra(Message.SCALEDX, scaledX);
         i.putExtra(Message.SCALEDY, scaledY);
         // Start the service
-        System.out.println("chiamo il service");
         startService(i);
-        System.out.println("Dopo start service");
     }
 
 
-    @Override//METODO IN CUI SARA' MOSTRATA L'IMMAGINE CON LE LINEE SOPRA, INVOCATO AL TERMINE DEL SERVICE
+    @Override
     public void onReceiveResult(int resultCode, Bundle resultData) {
-        Toast.makeText(this, "FINE SERVICE", Toast.LENGTH_SHORT).show();
-        if (resultCode == RESULT_OK) {
-            String newImagePath = resultData.getString(Message.IMG_PATH);
-            MediaScannerConnection.scanFile(this, new String[]{newImagePath}, null, this);
-        }
+
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        Intent mainActivity = new Intent(this, MainActivity.class);
+        startActivity(mainActivity);
     }
 }

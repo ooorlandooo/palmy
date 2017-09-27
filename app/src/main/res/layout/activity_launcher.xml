@@ -19,9 +19,9 @@
             android:textAlignment="center"
             tools:layout_editor_absoluteX="80dp"
             tools:layout_editor_absoluteY="72dp"
+            android:layout_marginBottom="20dp"
             android:layout_above="@+id/button"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="72dp" />
+            android:layout_centerHorizontal="true" />
 
 
         <Button
@@ -44,5 +44,18 @@
             android:layout_centerHorizontal="true"
             android:layout_marginBottom="23dp"
             android:text="Premi il pulsante 'Scatta una foto' per iniziare"/>
+
+        <ImageView
+            android:id="@+id/imageView3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/scritta"
+            android:layout_marginBottom="8dp"
+            android:layout_marginEnd="27dp"
+            android:layout_marginTop="10dp"
+            android:layout_above="@+id/textView"
+            android:layout_alignStart="@+id/textView"
+            android:layout_alignParentTop="true"
+            android:layout_alignEnd="@+id/textView2" />
     </RelativeLayout>
 </android.support.constraint.ConstraintLayout>
