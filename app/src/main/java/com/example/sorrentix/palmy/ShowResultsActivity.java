@@ -22,8 +22,6 @@ public class ShowResultsActivity extends Activity {
         super.onCreate(savedInstanceState);
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_show_results);
-
-        System.out.println("CIAO SONO LA ACTIVITY");
         Intent intent = getIntent();
         bmp = intent.getParcelableExtra("Bitmap");
         prediction = intent.getStringExtra("Prediction");

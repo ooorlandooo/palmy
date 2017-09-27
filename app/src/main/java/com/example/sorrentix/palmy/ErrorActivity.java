@@ -19,4 +19,10 @@ public class ErrorActivity extends AppCompatActivity {
         Intent camera = new Intent(this, CameraActivity.class);
         startActivity(camera);
     }
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        Intent mainActivity = new Intent(this, MainActivity.class);
+        startActivity(mainActivity);
+    }
 }

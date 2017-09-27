@@ -1,5 +1,6 @@
 package com.example.sorrentix.palmy;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Window;
@@ -14,5 +15,11 @@ public class LoadingActivity extends AppCompatActivity {
         this.setFinishOnTouchOutside(false);
 
 
+    }
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        Intent mainActivity = new Intent(this, MainActivity.class);
+        startActivity(mainActivity);
     }
 }

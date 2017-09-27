@@ -193,8 +193,6 @@ public class ImageUtils {
         //Scelta candidato
          for(int k=width-10;k>=0;k--){
             for(int z=0; z<height/2; z++){
-
-             //   System.out.println("Provo indici: "+ z+" "+k);
                 if((int)mat[k][z].getRed()==255 && (int)mat[k][z].getGreen()==0 && (int)mat[k][z].getBlue()==0){
                     i=k;
                     j=z;
@@ -216,7 +214,6 @@ public class ImageUtils {
         Imgproc.line(thinnedImg, new Point(i,j), new Point(i,j), new Scalar(0, 0, 0), 30);
         flag=false;
         boolean stop=false;
-        //TO DO: MODO PIU' EFFICIENTE?
         while(j>0 && !stop) {
             flag = false;
             for (int k = i - 2; k < i + 2; k++) {
@@ -493,13 +490,10 @@ public class ImageUtils {
         Imgproc.cvtColor(croppedImg,croppedImg,Imgproc.COLOR_RGBA2GRAY);
 
 //PROCESSING PHASE
-        //STEP 1 todo check equalize method
+        //STEP 1
         Imgproc.equalizeHist(croppedImg,croppedImg);
-        //matriciDaSalvare.add(croppedImg);
         Utils.matToBitmap(croppedImg,bmp);
         saveImageToExternalStorage(bmp);
-        //STEP 2 todo check filter type (suggested gausssian 5x5 + median 3x3)
-        //Imgproc.bilateralFilter(croppedImg,filteredImg,5,10,3);
         Imgproc.bilateralFilter(croppedImg,filteredImg,26,52,13);
         Utils.matToBitmap(filteredImg,bmp);
         saveImageToExternalStorage(bmp);
@@ -515,15 +509,14 @@ public class ImageUtils {
         saveImageToExternalStorage(bmp);
 //EXTRACTION PHASE
         //STEP 1
-        //disk-shaped structuring element with 2 point radius (todo check whether it's right or not)
+        //disk-shaped structuring element with 2 point radius
         Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(15,15), new Point(-1,-1));
         //Apply the specified morphology operation
-        Imgproc.morphologyEx( negative, topHatted, Imgproc.MORPH_TOPHAT, element );// 5 = top hat
+        Imgproc.morphologyEx( negative, topHatted, Imgproc.MORPH_TOPHAT, element );
         Utils.matToBitmap(topHatted,bmp);
         saveImageToExternalStorage(bmp);
         //STEP 2
         Imgproc.equalizeHist(topHatted,topHattedEqualized);
-        //image.convertTo( new_image , -1, alpha, beta );
         Utils.matToBitmap(topHattedEqualized,bmp);
         saveImageToExternalStorage(bmp);
         //STEP 3
@@ -572,7 +565,7 @@ public class ImageUtils {
 
         for (int i = 0; i < labeled.rows(); i++){
             for (int j = 0; j < labeled.cols(); j++){
-                if (statArray[(int)labeled.get(i,j)[0]] < 195)
+                if (statArray[(int)labeled.get(i,j)[0]] < 180)
                     binary.put(i,j,0);
             }
         }
@@ -597,7 +590,7 @@ public class ImageUtils {
         Rgb[][] mat = matToRgbMatrix(finalImg);
         Pair<ArrayList<Point>,Mat> lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> lifeL= lifeStruct.m;
-        if(getLineLength(lifeL)<200){
+        if(getLineLength(lifeL)<170){
             mat=matToRgbMatrix(lifeStruct.c);
             lifeStruct = leftLifeLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
             if(getLineLength(lifeL)< getLineLength(lifeStruct.m))
@@ -608,7 +601,7 @@ public class ImageUtils {
         mat=matToRgbMatrix(lifeStruct.c);
         Pair<ArrayList<Point>,Mat> heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> heartL = heartStruct.m;
-        if(getLineLength(heartL)<200){
+        if(getLineLength(heartL)<170){
             mat=matToRgbMatrix(heartStruct.c);
             heartStruct =leftHeartLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
            if(getLineLength(heartL) < getLineLength(heartStruct.m))
@@ -619,7 +612,7 @@ public class ImageUtils {
         mat=matToRgbMatrix(heartStruct.c);
         Pair<ArrayList<Point>,Mat> headStruct = leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
         ArrayList<Point> headL= headStruct.m;
-        if(getLineLength(headL)<200){
+        if(getLineLength(headL)<170){
             mat=matToRgbMatrix(headStruct.c);
             headStruct =leftHeadLineDetection(mat,finalImg,finalImg.height(),finalImg.width());
             if(getLineLength(headL) < getLineLength(headStruct.m))
@@ -653,7 +646,6 @@ public class ImageUtils {
             Imgproc.line(defImg, lifeL.get(i), lifeL.get(i+1), new Scalar(255, 255, 0), 10);
 
         }
-        System.out.println("LUNGHEZZA LINEE : prima: "+getLineLength(heartL)+" seconda:"+ getLineLength(headL)+ " terza:" + getLineLength(lifeL));
 
         Utils.matToBitmap(defImg,bmp2);
         saveImageToExternalStorage(bmp2);
@@ -679,11 +671,11 @@ public class ImageUtils {
             lifeLength=(int)getLineLength(lifeL);
 
         String prediction =   db.heartArrL.get(heartLength)
-                            +db.heartArrS.get(Math.abs(slope(heartL)))
-                            + db.headArrL.get(headLength)
-                            +db.headArrS.get(Math.abs(slope(headL)))
-                            + db.lifeArrL.get(lifeLength)
-                            +db.lifeArrS.get(Math.abs(slope(lifeL)));
+                             +db.heartArrS.get(Math.abs(slope(heartL)))
+                             +db.headArrL.get(headLength)
+                             +db.headArrS.get(Math.abs(slope(headL)))
+                             +db.lifeArrL.get(lifeLength)
+                             +db.lifeArrS.get(Math.abs(slope(lifeL)));
 
 
         return new Pair(bmp2, prediction);
